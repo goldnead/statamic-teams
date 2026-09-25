@@ -21,7 +21,7 @@ use Goldnead\Teams\Support\Users;
  */
 class TeamBuyer
 {
-    public const CHECKOUT = '\Goldnead\StatamicPayments\Support\Checkout';
+    public const CHECKOUT = 'Goldnead\StatamicPayments\Support\Checkout';
 
     public function available(): bool
     {

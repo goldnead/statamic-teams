@@ -17,7 +17,7 @@ use Throwable;
  */
 class AutomationsBridge
 {
-    public const FACADE = '\Goldnead\StatamicAutomations\Facades\Automations';
+    public const FACADE = 'Goldnead\StatamicAutomations\Facades\Automations';
 
     protected bool $registered = false;
 

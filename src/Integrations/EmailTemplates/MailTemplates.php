@@ -16,13 +16,13 @@ use Throwable;
  */
 class MailTemplates
 {
-    public const FACADE = '\Goldnead\EmailTemplates\Facades\EmailTemplates';
+    public const FACADE = 'Goldnead\EmailTemplates\Facades\EmailTemplates';
 
-    public const MERGE = '\Goldnead\EmailTemplates\Support\MergeVariables';
+    public const MERGE = 'Goldnead\EmailTemplates\Support\MergeVariables';
 
-    public const COLLECTION_MANAGER = '\Goldnead\EmailTemplates\Services\EmailTemplateCollectionManager';
+    public const COLLECTION_MANAGER = 'Goldnead\EmailTemplates\Services\EmailTemplateCollectionManager';
 
-    public const DATA = '\Goldnead\EmailTemplates\Support\EmailTemplateData';
+    public const DATA = 'Goldnead\EmailTemplates\Support\EmailTemplateData';
 
     /** Variables that carry a URL and must not be HTML-escaped (`&` in a query). */
     public const RAW = ['accept_url', 'team_url'];

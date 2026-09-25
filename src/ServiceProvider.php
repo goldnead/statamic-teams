@@ -2,6 +2,7 @@
 
 namespace Goldnead\Teams;
 
+use Goldnead\BrandContext\Settings\SettingsRegistry;
 use Goldnead\Teams\Http\Middleware\EnsureTeamMembership;
 use Goldnead\Teams\Http\Middleware\EnsureTeamWritable;
 use Goldnead\Teams\Integrations\Automations\AutomationsBridge;
@@ -89,7 +90,7 @@ class ServiceProvider extends AddonServiceProvider
 
         // Picked up by `email-templates:import`. Tagged only when the
         // interface exists: the source class implements it.
-        if (interface_exists('\Goldnead\EmailTemplates\Contracts\EmailTemplateSource')) {
+        if (interface_exists('Goldnead\EmailTemplates\Contracts\EmailTemplateSource')) {
             $this->app->tag([TeamsTemplateSource::class], 'email-templates.sources');
         }
     }
@@ -103,8 +104,11 @@ class ServiceProvider extends AddonServiceProvider
     {
         parent::boot();
 
-        if (class_exists('\Goldnead\BrandContext\Settings\SettingsRegistry')) {
-            $this->app->make('\Goldnead\BrandContext\Settings\SettingsRegistry')->register(Settings::class);
+        // `::class` without a leading backslash: the container keys the
+        // singleton by exactly that string, and `make('\Goldnead\…')` would
+        // build a second, empty registry that nobody reads.
+        if (class_exists(SettingsRegistry::class)) {
+            $this->app->make(SettingsRegistry::class)->register(Settings::class);
         }
     }
 

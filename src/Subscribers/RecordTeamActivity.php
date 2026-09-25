@@ -17,7 +17,7 @@ use Throwable;
  */
 class RecordTeamActivity
 {
-    public const FACADE = '\Goldnead\Activity\Facades\Activity';
+    public const FACADE = 'Goldnead\Activity\Facades\Activity';
 
     public function subscribe(Dispatcher $events): void
     {

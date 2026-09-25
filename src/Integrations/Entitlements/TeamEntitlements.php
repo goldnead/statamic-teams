@@ -20,9 +20,9 @@ use Throwable;
  */
 class TeamEntitlements
 {
-    protected const FACADE = '\Goldnead\Entitlements\Facades\Entitlements';
+    protected const FACADE = 'Goldnead\Entitlements\Facades\Entitlements';
 
-    protected const REFERENCE = '\Goldnead\Entitlements\Support\SubjectReference';
+    protected const REFERENCE = 'Goldnead\Entitlements\Support\SubjectReference';
 
     public function __construct(protected MembershipService $memberships) {}
 
