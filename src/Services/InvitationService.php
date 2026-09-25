@@ -57,10 +57,9 @@ class InvitationService
             throw TeamsException::because(TeamsException::UNKNOWN_ROLE);
         }
 
-        // Handing out the owner role is the owner's business, not an admin's.
-        if ($role === $this->roles->ownerRole() && $actor !== null && ! $team->isOwner($actor)) {
-            throw TeamsException::because(TeamsException::FORBIDDEN);
-        }
+        // Nobody invites into a role holding more than their own; the owner
+        // role and any role with `*` only by an owner.
+        $this->authorizer->authorizeRole($actor, $team, $role);
 
         $existingUser = Users::findByEmail($email);
 

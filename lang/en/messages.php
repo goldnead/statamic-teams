@@ -38,6 +38,8 @@ return [
         'join_code_invalid' => 'No team has this code.',
         'join_disabled' => 'This team cannot be joined with a code.',
         'unknown_role' => 'This role does not exist in the team.',
+        'already_owner' => 'This person already holds the role.',
+        'import_collision' => 'A different team already has this id.',
         'last_owner' => 'The last owner cannot leave or give up the role. Make someone else owner first.',
         'personal_team' => 'Nobody can be invited into a personal team.',
         'team_mismatch' => 'The request names two different teams.',

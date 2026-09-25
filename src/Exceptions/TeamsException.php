@@ -39,6 +39,10 @@ class TeamsException extends RuntimeException
 
     public const PERSONAL_TEAM = 'personal_team';
 
+    public const ALREADY_OWNER = 'already_owner';
+
+    public const IMPORT_COLLISION = 'import_collision';
+
     public const TEAM_MISMATCH = 'team_mismatch';
 
     public const TEAM_REQUIRED = 'team_required';
@@ -60,6 +64,8 @@ class TeamsException extends RuntimeException
         self::UNKNOWN_ROLE => 422,
         self::LAST_OWNER => 422,
         self::PERSONAL_TEAM => 422,
+        self::ALREADY_OWNER => 422,
+        self::IMPORT_COLLISION => 409,
         self::TEAM_MISMATCH => 422,
         self::TEAM_REQUIRED => 422,
         self::READ_ONLY => 423,

@@ -155,13 +155,19 @@ class TeamService
 
         $toKey = Users::key($to);
         $membership = $team->membershipOf($toKey) ?? throw TeamsException::because(TeamsException::NOT_MEMBER);
-        $fromKey = $team->owner_id;
+        // Who hands over is the actor, not whoever `owner_id` happens to
+        // name: in a team with two owners, the other one keeps the role.
+        $fromKey = $this->authorizer->actorKey($actor) ?? $team->owner_id;
         $owner = $this->roles->ownerRole();
+
+        if ($fromKey === $toKey) {
+            throw TeamsException::because(TeamsException::ALREADY_OWNER);
+        }
 
         DB::transaction(function () use ($team, $membership, $fromKey, $toKey, $owner) {
             $membership->update(['role' => $owner]);
 
-            if ($fromKey !== null && $fromKey !== $toKey) {
+            if ($fromKey !== null) {
                 $team->members()->where('user_id', $fromKey)->update(['role' => array_key_exists('admin', $this->roles->all($team)) ? 'admin' : $this->roles->defaultRole()]);
             }
 

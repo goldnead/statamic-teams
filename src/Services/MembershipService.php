@@ -45,6 +45,8 @@ class MembershipService
             throw TeamsException::because(TeamsException::UNKNOWN_ROLE);
         }
 
+        $this->authorizer->authorizeRole($actor, $team, $role);
+
         if ($team->isPersonal() && $via !== 'created' && $team->owner_id !== $key) {
             throw TeamsException::because(TeamsException::PERSONAL_TEAM);
         }
@@ -73,9 +75,10 @@ class MembershipService
     /**
      * Take a user out of a team.
      *
-     * The actor removing somebody else needs `remove members`; anybody may
-     * remove themselves (that is leaving). The last owner cannot go:
-     * a team nobody can administer is lost.
+     * The actor removing somebody else needs `remove members` and every
+     * permission of the other person's role; an owner goes only by an
+     * owner's hand. Anybody may remove themselves (that is leaving). The
+     * last owner cannot go: a team nobody can administer is lost.
      */
     public function remove(Team $team, mixed $user, mixed $actor = null): void
     {
@@ -89,11 +92,14 @@ class MembershipService
 
         $membership = $team->membershipOf($key) ?? throw TeamsException::because(TeamsException::NOT_MEMBER);
 
-        if ($membership->role === $this->roles->ownerRole() && $this->ownerCount($team) <= 1) {
-            throw TeamsException::because(TeamsException::LAST_OWNER);
+        if (! $leaving) {
+            $this->guardAgainstOwnerChange($team, $membership, $actor);
+            $this->authorizer->authorizeRole($actor, $team, $membership->role);
         }
 
-        DB::transaction(function () use ($membership, $key) {
+        DB::transaction(function () use ($team, $membership, $key) {
+            $this->assertNotLastOwner($team, $membership);
+
             $wasCurrent = $membership->is_current;
             $membership->delete();
 
@@ -125,19 +131,24 @@ class MembershipService
             return $membership;
         }
 
-        $owner = $this->roles->ownerRole();
-
-        if ($from === $owner && $this->ownerCount($team) <= 1) {
-            throw TeamsException::because(TeamsException::LAST_OWNER);
-        }
-
-        // Only an owner makes somebody an owner. `change roles` alone would
-        // let an admin promote himself past the people who gave him the role.
-        if ($role === $owner && $actor !== null && ! $team->isOwner($actor)) {
+        // Changing one's own role is an owner's business: `change roles`
+        // alone would let an admin raise himself past whoever gave it to him.
+        if ($actor !== null && $this->authorizer->actorKey($actor) === $membership->user_id
+            && ! $this->authorizer->isOwner($actor, $team)) {
             throw TeamsException::because(TeamsException::FORBIDDEN);
         }
 
-        $membership->update(['role' => $role]);
+        $this->guardAgainstOwnerChange($team, $membership, $actor);
+
+        // Nobody hands out, or takes away, more than they hold.
+        $this->authorizer->authorizeRole($actor, $team, $from);
+        $this->authorizer->authorizeRole($actor, $team, $role);
+
+        DB::transaction(function () use ($team, $membership, $role) {
+            $this->assertNotLastOwner($team, $membership);
+
+            $membership->update(['role' => $role]);
+        });
 
         event(new MemberRoleChanged($team, $membership, $from, $role, $this->authorizer->actorKey($actor)));
 
@@ -225,5 +236,36 @@ class MembershipService
     public function ownerCount(Team $team): int
     {
         return $team->members()->where('role', $this->roles->ownerRole())->count();
+    }
+
+    /**
+     * An owner is demoted or removed only by an owner.
+     */
+    protected function guardAgainstOwnerChange(Team $team, Membership $membership, mixed $actor): void
+    {
+        if ($membership->role === $this->roles->ownerRole() && ! $this->authorizer->isOwner($actor, $team)) {
+            throw TeamsException::because(TeamsException::FORBIDDEN);
+        }
+    }
+
+    /**
+     * Inside the write's transaction, with the owner rows locked: two owners
+     * leaving at the same moment must not both see "one other owner is left".
+     * `pluck()->count()` rather than `count()`: PostgreSQL refuses FOR UPDATE
+     * on an aggregate.
+     */
+    protected function assertNotLastOwner(Team $team, Membership $membership): void
+    {
+        $owner = $this->roles->ownerRole();
+
+        if ($membership->role !== $owner) {
+            return;
+        }
+
+        $owners = $team->members()->where('role', $owner)->lockForUpdate()->pluck('id');
+
+        if ($owners->reject(fn ($id) => (int) $id === (int) $membership->id)->isEmpty()) {
+            throw TeamsException::because(TeamsException::LAST_OWNER);
+        }
     }
 }

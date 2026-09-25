@@ -34,6 +34,29 @@ class Authorizer
         }
     }
 
+    /**
+     * The actor may hand out, invite into or take away `$role`: they hold
+     * every permission of it (see {@see Roles::covers()}). No-op for the
+     * system (no actor).
+     */
+    public function authorizeRole(mixed $actor, Team $team, string $role): void
+    {
+        if ($actor === null) {
+            return;
+        }
+
+        $own = $team->roleOf($actor) ?? throw TeamsException::because(TeamsException::NOT_MEMBER);
+
+        if (! $this->roles->covers($own, $role, $team)) {
+            throw TeamsException::because(TeamsException::FORBIDDEN);
+        }
+    }
+
+    public function isOwner(mixed $actor, Team $team): bool
+    {
+        return $actor === null || $team->roleOf($actor) === $this->roles->ownerRole();
+    }
+
     public function actorKey(mixed $actor): ?string
     {
         return Users::key($actor);

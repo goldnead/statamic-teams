@@ -38,6 +38,8 @@ return [
         'join_code_invalid' => 'Zu diesem Code gibt es kein Team.',
         'join_disabled' => 'Diesem Team kann man nicht per Code beitreten.',
         'unknown_role' => 'Diese Rolle gibt es im Team nicht.',
+        'already_owner' => 'Diese Person hat die Rolle schon.',
+        'import_collision' => 'Unter dieser ID gibt es schon ein anderes Team.',
         'last_owner' => 'Wer als Letzte:r Inhaber:in ist, kann weder gehen noch die Rolle abgeben. Gib die Rolle zuerst jemand anderem.',
         'personal_team' => 'In ein persönliches Team kann niemand eingeladen werden.',
         'team_mismatch' => 'Die Anfrage nennt zwei verschiedene Teams.',

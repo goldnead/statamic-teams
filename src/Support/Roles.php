@@ -71,6 +71,35 @@ class Roles
         return in_array('*', $permissions, true) || in_array($permission, $permissions, true);
     }
 
+    /**
+     * Does a member in `$actorRole` hold everything `$targetRole` grants?
+     *
+     * The rule for handing out, inviting into and removing from a role:
+     * nobody gives more than they have. `*` counts as "everything", and only
+     * the owner role covers it: a custom role that someone wrote `*` into is
+     * still not an owner.
+     */
+    public function covers(string $actorRole, string $targetRole, ?Team $team = null): bool
+    {
+        if ($actorRole === $this->ownerRole()) {
+            return true;
+        }
+
+        if ($targetRole === $this->ownerRole()) {
+            return false;
+        }
+
+        $target = $this->permissions($targetRole, $team);
+
+        if (in_array('*', $target, true)) {
+            return false;
+        }
+
+        $held = $this->permissions($actorRole, $team);
+
+        return in_array('*', $held, true) || array_diff($target, $held) === [];
+    }
+
     public function can(mixed $user, Team $team, string $permission): bool
     {
         $role = $team->roleOf($user);
