@@ -166,7 +166,7 @@ class TeamController extends Controller
             'metaLabels' => collect($members)
                 ->flatMap(fn ($m) => array_keys($m['meta']))
                 ->unique()
-                ->mapWithKeys(fn ($key) => [$key => __((string) (config("teams.meta_labels.{$key}") ?? Str::headline((string) $key)))])
+                ->mapWithKeys(fn ($key) => [$key => __((string) (config("teams.meta_labels.{$key}") ?? Str::ucfirst(str_replace('_', ' ', (string) $key))))])
                 ->all(),
             'entitlementSubject' => Team::MORPH_ALIAS.':'.$record->id,
             'urls' => [

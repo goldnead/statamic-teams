@@ -83,7 +83,7 @@ class HardeningTest extends TestCase
             ->get('/cp/teams/'.$team->id)
             ->assertOk()
             ->assertSee('Stimmgruppe', false)
-            ->assertSee('Seat Row', false);
+            ->assertSee('Seat row', false);
     }
 
     #[Test]

@@ -154,7 +154,8 @@ return [
     |
     | How the CP names the fields in a membership's `meta`, e.g.
     | ['voice_part' => 'Voice part']. Labels go through the translator. A key
-    | without a label is shown as a headline of the key.
+    | without a label is shown as the key in words (`seat_row` → "Seat row"),
+    | also through the translator.
     |
     */
 
