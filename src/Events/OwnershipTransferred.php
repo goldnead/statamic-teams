@@ -21,6 +21,6 @@ class OwnershipTransferred extends TeamEvent
 
     public function payload(): array
     {
-        return ['team' => $this->team->summary(), 'from' => Users::summary($this->fromUserId), 'to' => Users::summary($this->toUserId), 'actor_id' => $this->actorId];
+        return self::typed(['team' => $this->team->summary(), 'from' => Users::summary($this->fromUserId), 'to' => Users::summary($this->toUserId), 'actor_id' => $this->actorId]);
     }
 }

@@ -22,6 +22,6 @@ class TeamUpdated extends TeamEvent
 
     public function payload(): array
     {
-        return ['team' => $this->team->summary(), 'changes' => array_values(array_diff($this->changes, ['join_code'])), 'actor_id' => $this->actorId];
+        return self::typed(['team' => $this->team->summary(), 'changes' => array_values(array_diff($this->changes, ['join_code'])), 'actor_id' => $this->actorId]);
     }
 }

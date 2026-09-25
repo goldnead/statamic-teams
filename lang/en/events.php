@@ -5,7 +5,7 @@ return [
     'team_updated' => ['label' => 'Team changed', 'description' => 'Name, join method, settings or billing address changed. Carries the names of the changed fields.'],
     'team_deleted' => ['label' => 'Team deleted', 'description' => 'The team is gone. Carries the team as it was.'],
     'team_ownership_transferred' => ['label' => 'Ownership transferred', 'description' => 'Another member owns the team now.'],
-    'member_joined' => ['label' => 'Member joined', 'description' => 'Somebody entered a team: by invitation, by join code, added in the CP, or as its creator.'],
+    'member_joined' => ['label' => 'Member joined', 'description' => 'Somebody entered a team: by invitation, by join code, added in the CP, or as its creator. Not when a personal team is created.'],
     'member_left' => ['label' => 'Member left', 'description' => 'Somebody left a team or was removed. The field reason says which.'],
     'member_role_changed' => ['label' => 'Role changed', 'description' => 'A member holds a different role in the team.'],
     'invitation_sent' => ['label' => 'Invitation sent', 'description' => 'An address was invited, or invited again. Carries no link.'],

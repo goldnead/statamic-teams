@@ -23,6 +23,6 @@ class MemberRoleChanged extends TeamEvent
 
     public function payload(): array
     {
-        return ['team' => $this->team->summary(), 'user' => Users::summary($this->membership->user_id), 'from' => $this->from, 'to' => $this->to, 'actor_id' => $this->actorId];
+        return self::typed(['team' => $this->team->summary(), 'user' => Users::summary($this->membership->user_id), 'from' => $this->from, 'to' => $this->to, 'actor_id' => $this->actorId]);
     }
 }

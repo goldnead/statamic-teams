@@ -20,4 +20,21 @@ abstract class TeamEvent
 
     /** @return array<string, mixed> */
     abstract public function payload(): array;
+
+    /**
+     * `team_type` next to `team`, at the top of the payload: `personal` or
+     * `team` (or a host's own type). The same value as `team.type`, lifted so
+     * a webhook filter or a flow condition that reads only the first level
+     * can tell a personal team from a real one.
+     *
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    protected static function typed(array $payload): array
+    {
+        $team = $payload['team'] ?? null;
+        $payload['team_type'] = is_array($team) && is_string($team['type'] ?? null) ? $team['type'] : null;
+
+        return $payload;
+    }
 }

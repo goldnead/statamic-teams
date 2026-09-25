@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.2.0 — 2026-09-25
+
+Findings from the ChoirLive end-to-end check.
+
+### Changed
+
+- **A personal team no longer announces its owner joining.** Creating it fires `teams.team.created`
+  (with `team_type = personal`) and no `teams.member.joined`; the owner is still its member. Before,
+  every registration on a site with personal teams fired `member.joined` and ran the flows,
+  webhooks and the "member joined" mail meant for real teams. A regular team still announces its
+  founder (`via = created`). Anything that relied on `member.joined` for personal teams should
+  listen to `team.created` instead.
+
+### Added
+
+- `team_type` at the top level of every event payload, the same value as `team.type`, so a
+  webhook filter or flow condition reading only the first level can tell the types apart.
+- Automations: every Teams trigger has a **Team type** setting (select from `teams.types`). Empty
+  fires for all teams, a type only for teams of that type.
+
+### Upgrading
+
+- No migration, no new config key.
+
 ## 0.1.1 — 2026-09-25
 
 ### Fixed

@@ -14,4 +14,6 @@ return [
     'automations' => 'Automationen',
     'webhook_manager' => 'Webhook-Manager',
     'activity' => 'Aktivität',
+    'automations_team_type' => 'Teamtyp',
+    'automations_team_type_help' => 'Nur für Teams dieses Typs auslösen. Leer: für alle, auch für persönliche Teams.',
 ];

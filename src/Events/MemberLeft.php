@@ -22,6 +22,6 @@ class MemberLeft extends TeamEvent
 
     public function payload(): array
     {
-        return ['team' => $this->team->summary(), 'user' => Users::summary($this->userId), 'role' => $this->role, 'reason' => $this->reason, 'actor_id' => $this->actorId];
+        return self::typed(['team' => $this->team->summary(), 'user' => Users::summary($this->userId), 'role' => $this->role, 'reason' => $this->reason, 'actor_id' => $this->actorId]);
     }
 }

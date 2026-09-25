@@ -20,6 +20,6 @@ class InvitationAccepted extends TeamEvent
 
     public function payload(): array
     {
-        return ['team' => $this->invitation->team?->summary(), 'invitation' => $this->invitation->summary(), 'user' => Users::summary($this->membership->user_id)];
+        return self::typed(['team' => $this->invitation->team?->summary(), 'invitation' => $this->invitation->summary(), 'user' => Users::summary($this->membership->user_id)]);
     }
 }

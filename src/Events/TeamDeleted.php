@@ -19,6 +19,6 @@ class TeamDeleted extends TeamEvent
 
     public function payload(): array
     {
-        return ['team' => $this->team, 'actor_id' => $this->actorId];
+        return self::typed(['team' => $this->team, 'actor_id' => $this->actorId]);
     }
 }

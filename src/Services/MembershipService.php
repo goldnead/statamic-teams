@@ -67,7 +67,13 @@ class MembershipService
             ]);
         });
 
-        event(new MemberJoined($team, $membership, $via, $this->authorizer->actorKey($actor)));
+        // A personal team is created, not joined: its owner becoming its only
+        // member is part of `team.created`. Announced as a join, every
+        // registration on a site with personal teams ran the flows and
+        // webhooks meant for "somebody joined the choir".
+        if (! ($team->isPersonal() && $via === 'created')) {
+            event(new MemberJoined($team, $membership, $via, $this->authorizer->actorKey($actor)));
+        }
 
         return $membership;
     }

@@ -52,6 +52,10 @@ class AutomationsBridge
                     'group' => 'Teams',
                     'payload' => fn (TeamEvent $fired) => $fired->payload(),
                     'output_schema' => self::outputSchema($event['handle']),
+                    // A flow can listen to one team type only: "somebody
+                    // joined a choir" without the personal teams.
+                    'schema' => [self::teamTypeField()],
+                    'matches' => fn (object|array $fired, array $config) => self::matchesTeamType($fired, $config),
                 ]);
             }
 
@@ -66,6 +70,43 @@ class AutomationsBridge
     public function registered(): bool
     {
         return $this->registered;
+    }
+
+    /**
+     * The trigger's one setting: which team type it fires for. Empty: all.
+     *
+     * @return array<string, mixed>
+     */
+    public static function teamTypeField(): array
+    {
+        $options = [];
+
+        foreach ((array) config('teams.types', []) as $handle => $label) {
+            $options[(string) $handle] = is_string($label) ? $label : (string) $handle;
+        }
+
+        return [
+            'handle' => 'team_type',
+            'label' => __('teams::cp.automations_team_type'),
+            'type' => 'select',
+            'options' => $options,
+            'required' => false,
+            'help' => __('teams::cp.automations_team_type_help'),
+        ];
+    }
+
+    /** @param  array<string, mixed>  $config */
+    public static function matchesTeamType(object|array $fired, array $config): bool
+    {
+        $wanted = $config['team_type'] ?? null;
+
+        if (! is_string($wanted) || $wanted === '') {
+            return true;
+        }
+
+        $payload = $fired instanceof TeamEvent ? $fired->payload() : (array) $fired;
+
+        return ($payload['team_type'] ?? null) === $wanted;
     }
 
     /**

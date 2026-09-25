@@ -14,4 +14,6 @@ return [
     'automations' => 'Automations',
     'webhook_manager' => 'Webhook Manager',
     'activity' => 'Activity',
+    'automations_team_type' => 'Team type',
+    'automations_team_type_help' => 'Only fire for teams of this type. Empty: for all, personal teams included.',
 ];

@@ -311,7 +311,18 @@ and plain fields (no tokens, no join codes):
 (`reason`: `left`, `removed`), `teams.member.role_changed`, `teams.invitation.sent`,
 `teams.invitation.accepted`, `teams.invitation.revoked`.
 
-With statamic-automations each is a trigger (group "Teams"), with statamic-webhook-manager a webhook
+Every payload carries `team_type` at the top level (`personal`, `team` or a type of your own), the
+same value as `team.type`.
+
+**Personal teams are created, not joined.** Creating a personal team (on registration with
+`personal.create_on_registration`, or through `Teams::personalTeam()`) fires `teams.team.created`
+with `team_type = personal` and **no** `teams.member.joined` for its owner. A regular team still
+announces its founder as the first member (`via = created`). Since 0.2.0; before, every
+registration on a site with personal teams fired `member.joined`.
+
+With statamic-automations each is a trigger (group "Teams") with one setting, **Team type**: empty
+fires for every team, a type fires only for teams of that type. In webhook-manager, filter on
+`team_type` in the payload. With statamic-webhook-manager a webhook
 trigger (source type `team`), with statamic-activity an entry (subject `team:<id>`).
 **Teams → Wiring** in the CP shows, per event, its mail and how many enabled flows and webhooks listen.
 
