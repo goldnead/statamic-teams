@@ -21,6 +21,7 @@ use Illuminate\Support\Facades\Facade;
  * @method static \Goldnead\Teams\Models\Membership changeRole(\Goldnead\Teams\Models\Team $team, mixed $user, string $role, mixed $actor = null)
  * @method static \Goldnead\Teams\Models\Membership updateMemberMeta(\Goldnead\Teams\Models\Team $team, mixed $user, array $meta, mixed $actor = null)
  * @method static \Goldnead\Teams\Models\Team|null current(mixed $user = null)
+ * @method static \Goldnead\Teams\Models\Team currentOrFail(mixed $user = null)
  * @method static void setCurrent(?\Goldnead\Teams\Models\Team $team)
  * @method static \Goldnead\Teams\Models\Membership switch(mixed $user, \Goldnead\Teams\Models\Team $team)
  * @method static \Goldnead\Teams\Support\IssuedInvitation invite(\Goldnead\Teams\Models\Team $team, string $email, ?string $role = null, array $meta = [], mixed $actor = null)

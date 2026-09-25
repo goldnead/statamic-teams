@@ -133,6 +133,12 @@ class TeamsManager
      */
     public function current(mixed $user = null): ?Team
     {
+        // Once `teams.current` decided (even "none", with the fallback off),
+        // its word stands. Without the middleware: the user's current team.
+        if ($this->current->resolved() && $user === null) {
+            return $this->current->get();
+        }
+
         if ($this->current->has()) {
             return $this->current->get();
         }
@@ -140,6 +146,15 @@ class TeamsManager
         $user ??= auth()->user();
 
         return $user === null ? null : $this->memberships->currentFor($user);
+    }
+
+    /**
+     * The team of this request, or a `team_required` refusal (422). The
+     * counterpart of ChoirLive's `currentTenantId()`.
+     */
+    public function currentOrFail(mixed $user = null): Team
+    {
+        return $this->current($user) ?? throw Exceptions\TeamsException::because(Exceptions\TeamsException::TEAM_REQUIRED);
     }
 
     public function setCurrent(?Team $team): void

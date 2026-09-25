@@ -3,6 +3,7 @@
 namespace Goldnead\Teams;
 
 use Goldnead\BrandContext\Settings\SettingsRegistry;
+use Goldnead\Teams\Exceptions\TeamsException;
 use Goldnead\Teams\Http\Middleware\EnsureTeamMembership;
 use Goldnead\Teams\Http\Middleware\EnsureTeamWritable;
 use Goldnead\Teams\Integrations\Automations\AutomationsBridge;
@@ -23,6 +24,7 @@ use Goldnead\Teams\Support\JoinCodes;
 use Goldnead\Teams\Support\JoinGuards;
 use Goldnead\Teams\Support\Roles;
 use Goldnead\Teams\Support\Settings;
+use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Routing\Router;
 use Statamic\Events\UserRegistered;
@@ -120,6 +122,7 @@ class ServiceProvider extends AddonServiceProvider
         $this
             ->bootMorphAlias()
             ->bootMiddleware()
+            ->bootExceptionRendering()
             ->bootNav()
             ->bootPermissions()
             ->bootBridges()
@@ -149,6 +152,25 @@ class ServiceProvider extends AddonServiceProvider
         $router = $this->app['router'];
         $router->aliasMiddleware('teams.current', EnsureTeamMembership::class);
         $router->aliasMiddleware('teams.writable', EnsureTeamWritable::class);
+
+        return $this;
+    }
+
+    /**
+     * A refusal that escapes to the framework (`Teams::currentOrFail()` in a
+     * host controller) answers with its status and reason, not a 500.
+     */
+    protected function bootExceptionRendering(): self
+    {
+        $handler = $this->app->make(ExceptionHandler::class);
+
+        if (method_exists($handler, 'renderable')) {
+            $handler->renderable(function (TeamsException $e, $request) {
+                return $request->expectsJson()
+                    ? response()->json($e->toArray(), $e->status())
+                    : abort($e->status(), $e->getMessage());
+            });
+        }
 
         return $this;
     }

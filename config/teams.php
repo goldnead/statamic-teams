@@ -141,6 +141,10 @@ return [
         'header' => 'X-Team-ID',
         'parameter' => 'team_id',
         'route_parameters' => ['team', 'team_id'],
+
+        // Without a named team, use the user's current team. Off: the
+        // request has no team, and `Teams::currentOrFail()` answers 422.
+        'fallback_to_current' => true,
     ],
 
     /*

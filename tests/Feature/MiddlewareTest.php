@@ -36,6 +36,7 @@ class MiddlewareTest extends TestCase
         Route::middleware(['web', 'teams.current'])->group(function () use ($echo) {
             Route::match(['get', 'post'], '/_test/mixed', $echo);
             Route::get('/_test/teams/{team}', $echo);
+            Route::get('/_test/or-fail', fn () => response()->json(['team' => Teams::currentOrFail()->id]));
         });
         Route::middleware(['web', 'teams.current:required', 'teams.writable'])
             ->match(['get', 'post'], '/_test/required', $echo);
@@ -95,6 +96,37 @@ class MiddlewareTest extends TestCase
     {
         $this->actingAs($this->bob)
             ->getJson('/_test/mixed')
+            ->assertOk()
+            ->assertJson(['team' => $this->choir->id]);
+    }
+
+    #[Test]
+    public function without_the_fallback_a_request_naming_no_team_has_none(): void
+    {
+        config(['teams.current.fallback_to_current' => false]);
+
+        $this->actingAs($this->bob)
+            ->getJson('/_test/mixed')
+            ->assertOk()
+            ->assertJson(['team' => null]);
+
+        $this->actingAs($this->bob)
+            ->getJson('/_test/or-fail')
+            ->assertStatus(422)
+            ->assertJson(['message' => __('teams::messages.errors.team_required')]);
+    }
+
+    #[Test]
+    public function header_and_parameter_names_are_configurable(): void
+    {
+        config(['teams.current.header' => 'X-Tenant-ID', 'teams.current.parameter' => 'tenant_id']);
+
+        $this->actingAs($this->bob)
+            ->getJson('/_test/mixed?tenant_id='.$this->other->id)
+            ->assertStatus(403);
+
+        $this->actingAs($this->bob)
+            ->getJson('/_test/mixed', ['X-Tenant-ID' => (string) $this->choir->id])
             ->assertOk()
             ->assertJson(['team' => $this->choir->id]);
     }

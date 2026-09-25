@@ -22,7 +22,9 @@ use Symfony\Component\HttpFoundation\Response;
  * A team the user is not in is a 403, whether it exists or not.
  *
  * `teams.current` (mode `mixed`): without a named team, the user's current
- * team is used, or none. `teams.current:required`: without a named team,
+ * team is used, or none; with `teams.current.fallback_to_current` off, none
+ * (then `Teams::currentOrFail()` answers 422, as ChoirLive's
+ * `currentTenantId()` does). `teams.current:required`: without a named team,
  * 422. Either way `Teams::current()` returns the team afterwards.
  */
 class EnsureTeamMembership
@@ -56,11 +58,11 @@ class EnsureTeamMembership
             }
         } elseif ($mode === 'required') {
             $this->refuse(TeamsException::TEAM_REQUIRED);
-        } else {
+        } elseif (config('teams.current.fallback_to_current', true)) {
             $team = $user === null ? null : $this->memberships->currentFor($user);
         }
 
-        $this->current->set($team ?: null);
+        $this->current->set($team ?? null);
 
         return $next($request);
     }
