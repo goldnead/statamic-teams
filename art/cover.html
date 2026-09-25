@@ -1,0 +1,75 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1200px; height: 630px; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
+    background: radial-gradient(1200px 700px at 78% 22%, #4A5A18 0%, #283209 55%, #0B0E03 100%);
+    color: #fff; overflow: hidden; position: relative;
+  }
+  .wrap { display: flex; height: 100%; align-items: center; padding: 0 92px; gap: 64px; }
+  .copy { max-width: 660px; }
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: 10px;
+    font-size: 22px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase;
+    color: #E8EFC6; margin-bottom: 26px;
+  }
+  .eyebrow .dot { width: 12px; height: 12px; border-radius: 50%; background: #B4C94E; box-shadow: 0 0 18px #B4C94E; }
+  h1 { font-size: 76px; line-height: 1.02; font-weight: 800; letter-spacing: -.02em; }
+  h1 .accent { background: linear-gradient(90deg,#E8EFC6,#C3D46A); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  p.sub { margin-top: 28px; font-size: 30px; line-height: 1.35; color: #E6E9D6; font-weight: 400; }
+  .badges { margin-top: 40px; display: flex; gap: 14px; }
+  .badge { font-size: 22px; font-weight: 600; padding: 12px 22px; border-radius: 999px; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.16); color: #E8EFC6; white-space: nowrap; }
+  .art { flex: 1; display: flex; align-items: center; justify-content: center; }
+  .glyph { width: 360px; height: 360px; filter: drop-shadow(0 30px 60px rgba(0,0,0,.45)); }
+  .corner { position: absolute; right: -120px; bottom: -160px; width: 520px; height: 520px; border-radius: 50%;
+    background: radial-gradient(circle at 30% 30%, #9AAE3F47, transparent 60%); }
+</style>
+</head>
+<body>
+  <div class="corner"></div>
+  <div class="wrap">
+    <div class="copy">
+      <span class="eyebrow"><span class="dot"></span>Statamic Addon</span>
+      <h1>Statamic<br><span class="accent">Teams</span></h1>
+      <p class="sub">Workspaces with members, roles per team and invitations.</p>
+      <div class="badges">
+        <span class="badge">Roles per team</span>
+        <span class="badge">Join codes</span>
+        <span class="badge">Team billing</span>
+      </div>
+    </div>
+    <div class="art">
+      <svg class="glyph" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="bg" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#9AAE3F"/><stop offset="1" stop-color="#3D4A14"/>
+          </linearGradient>
+          <filter id="sh" x="-20%" y="-20%" width="140%" height="140%">
+            <feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="#222A0A" flood-opacity="0.36"/>
+          </filter>
+        </defs>
+        <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+        <!-- three people, one in front, see icon.svg -->
+        <g filter="url(#sh)" fill="#FFFFFF">
+          <circle cx="134" cy="194" r="52"/>
+          <path d="M52 384 C52 318 90 276 134 276 C178 276 216 318 216 384 Q216 396 204 396 L64 396 Q52 396 52 384 Z"/>
+          <circle cx="378" cy="194" r="52"/>
+          <path d="M296 384 C296 318 334 276 378 276 C422 276 460 318 460 384 Q460 396 448 396 L308 396 Q296 396 296 384 Z"/>
+        </g>
+        <g stroke="url(#bg)" stroke-width="24" fill="url(#bg)" stroke-linejoin="round">
+          <circle cx="256" cy="172" r="70"/>
+          <path d="M144 420 C144 336 196 284 256 284 C316 284 368 336 368 420 Q368 436 352 436 L160 436 Q144 436 144 420 Z"/>
+        </g>
+        <g filter="url(#sh)" fill="#FFFFFF">
+          <circle cx="256" cy="172" r="70"/>
+          <path d="M144 420 C144 336 196 284 256 284 C316 284 368 336 368 420 Q368 436 352 436 L160 436 Q144 436 144 420 Z"/>
+        </g>
+      </svg>
+    </div>
+  </div>
+</body>
+</html>
