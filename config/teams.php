@@ -149,6 +149,21 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Entitlements
+    |--------------------------------------------------------------------------
+    |
+    | Subject types in statamic-entitlements whose id is a user key, so the
+    | user's teams count for them. `user`, the auth model's class and its
+    | morph alias are always included; add others here.
+    |
+    */
+
+    'entitlements' => [
+        'user_types' => [],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Membership meta labels
     |--------------------------------------------------------------------------
     |

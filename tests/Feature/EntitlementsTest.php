@@ -4,22 +4,53 @@ namespace Goldnead\Teams\Tests\Feature;
 
 use Goldnead\Entitlements\Facades\Entitlements;
 use Goldnead\Entitlements\Support\SubjectReference;
+use Goldnead\IdentityContracts\ServiceProvider;
 use Goldnead\Teams\Facades\Teams;
 use Goldnead\Teams\Integrations\Entitlements\TeamEntitlements;
 use Goldnead\Teams\Models\Team;
 use Goldnead\Teams\Tests\TestCase;
 use Illuminate\Database\Eloquent\Relations\Relation;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Support\Facades\Schema;
 use PHPUnit\Framework\Attributes\Test;
 
-require_once __DIR__.'/../Fakes/entitlements.php';
-
+/**
+ * Against the real goldnead/statamic-entitlements (dev dependency): a team
+ * grant, a limit at the team, and bookings counted at the team.
+ */
 class EntitlementsTest extends TestCase
 {
+    protected function getPackageProviders($app): array
+    {
+        return [
+            ...parent::getPackageProviders($app),
+            ServiceProvider::class,
+            \Goldnead\Entitlements\ServiceProvider::class,
+        ];
+    }
+
+    protected function defineEnvironment($app): void
+    {
+        parent::defineEnvironment($app);
+
+        $app['config']->set('brand-context.multi_brand', false);
+        $app['config']->set('queue.default', 'sync');
+    }
+
     protected function setUp(): void
     {
         parent::setUp();
 
-        Entitlements::$grants = [];
+        // Entitlements loads its migrations in bootAddon(), which Statamic runs
+        // only for the addon under test here. Its tables are all this needs.
+        $this->loadMigrationsFrom(dirname((string) (new \ReflectionClass(\Goldnead\Entitlements\ServiceProvider::class))->getFileName(), 2).'/database/migrations');
+        $this->artisan('migrate')->run();
+    }
+
+    protected function userRef(mixed $user): SubjectReference
+    {
+        return new SubjectReference('user', (string) $user->id());
     }
 
     #[Test]
@@ -30,77 +61,102 @@ class EntitlementsTest extends TestCase
         $subject = Teams::entitlementSubject($team);
 
         $this->assertInstanceOf(SubjectReference::class, $subject);
-        $this->assertSame('team', $subject->type);
-        $this->assertSame((string) $team->id, $subject->id);
+        $this->assertSame('team:'.$team->id, $subject->key());
         $this->assertSame(Team::class, Relation::getMorphedModel('team'));
-        $this->assertSame('team', $team->getMorphClass());
+        $this->assertTrue(SubjectReference::for($team)->equals($subject));
     }
 
     #[Test]
-    public function access_granted_to_the_team_holds_for_every_member_and_ends_when_they_leave(): void
+    public function teams_registers_itself_as_subject_expander(): void
     {
         $owner = $this->makeUser('owner@example.com');
         $bob = $this->makeUser('bob@example.com');
         $team = Teams::create('Chor', $owner);
         Teams::addMember($team, $bob);
-        Entitlements::grant(Teams::entitlementSubject($team), 'chortarif');
+        Entitlements::grant($team, 'chortarif', 'manual');
 
-        $this->assertTrue(Teams::allows($owner, 'chortarif'));
-        $this->assertTrue(Teams::allows($bob, 'chortarif'));
-        $this->assertFalse(Teams::allows($this->makeUser('stranger@example.com'), 'chortarif'));
+        // Asked about the person, entitlements itself finds the team.
+        $this->assertTrue(Entitlements::allows($this->userRef($bob), 'chortarif'));
+        $this->assertFalse(Entitlements::allows($this->userRef($this->makeUser('stranger@example.com')), 'chortarif'));
 
         Teams::leave($team, $bob);
 
-        $this->assertFalse(Teams::allows($bob, 'chortarif'));
-        $this->assertTrue(Teams::allows($owner, 'chortarif'));
+        $this->assertFalse(Entitlements::allows($this->userRef($bob), 'chortarif'));
+        $this->assertTrue(Entitlements::allows($this->userRef($owner), 'chortarif'));
     }
 
     #[Test]
-    public function personal_access_counts_when_the_host_names_the_user_subject(): void
+    public function teams_allows_checks_personal_and_team_access(): void
     {
         $anna = $this->makeUser('anna@example.com');
-        $personal = new SubjectReference('user', (string) $anna->id());
-        Entitlements::grant($personal, 'lifetime');
+        Entitlements::grant($this->userRef($anna), 'lifetime', 'manual');
+        $team = Teams::create('Chor', $anna);
+        Entitlements::grant($team, 'chortarif', 'manual');
 
-        $this->assertTrue(Teams::allows($anna, 'lifetime', $personal));
+        $this->assertTrue(Teams::allows($anna, 'lifetime', $this->userRef($anna)));
+        $this->assertTrue(Teams::allows($anna, 'chortarif'));
         $this->assertFalse(Teams::allows($anna, 'lifetime'));
     }
 
     #[Test]
-    public function the_subjects_of_a_user_are_one_per_team(): void
+    public function a_limit_at_the_team_is_shared_and_counted_at_the_team(): void
     {
-        $bob = $this->makeUser('bob@example.com');
-        $a = Teams::create('A', $bob);
-        $b = Teams::create('B', $bob);
+        $olga = $this->makeUser('olga@example.com');
+        $ben = $this->makeUser('ben@example.com');
+        $team = Teams::create('Chor', $olga);
+        Teams::addMember($team, $ben);
+        Entitlements::grant($team, 'chortarif', 'manual');
+        Entitlements::setLimits('chortarif', ['analyses' => ['value' => 2, 'period' => 'year']]);
 
-        $keys = array_map(fn ($s) => $s->key(), Teams::entitlementSubjectsFor($bob));
-        sort($keys);
+        $this->assertSame(2, Entitlements::limit($this->userRef($ben), 'analyses'));
+        $this->assertTrue(Entitlements::consume($this->userRef($olga), 'analyses'));
+        $this->assertTrue(Entitlements::consume($this->userRef($ben), 'analyses'));
+        $this->assertFalse(Entitlements::consume($this->userRef($ben), 'analyses'), 'The team counter is full, whoever books.');
 
-        $this->assertSame(['team:'.$a->id, 'team:'.$b->id], $keys);
+        $quota = Entitlements::quota($this->userRef($ben), 'analyses');
+        $this->assertSame(0, $quota->remaining());
+        $this->assertSame(0, Entitlements::remaining(Teams::entitlementSubject($team), 'analyses'));
     }
 
     #[Test]
-    public function related_subjects_expand_a_user_reference_into_its_teams(): void
+    public function the_user_types_follow_the_eloquent_user_model(): void
     {
+        Schema::create('test_users', function (Blueprint $table) {
+            $table->id();
+            $table->string('email');
+            $table->timestamps();
+        });
+        config(['auth.providers.users.model' => TeamsTestUser::class]);
+
+        $model = TeamsTestUser::query()->create(['email' => 'eloquent@example.com']);
+        $team = Teams::create('Chor');
+        Teams::addMember($team, $model);
+        Entitlements::grant($team, 'chortarif', 'manual');
+
+        $this->assertTrue(Entitlements::allows($model, 'chortarif'), 'The model itself, as entitlements resolves it.');
+        $this->assertTrue(Entitlements::allows(new SubjectReference(TeamsTestUser::class, (string) $model->id), 'chortarif'));
+        $this->assertSame(['team:'.$team->id], array_map(
+            fn ($s) => $s->key(),
+            app(TeamEntitlements::class)->relatedSubjects(SubjectReference::for($model)),
+        ));
+    }
+
+    #[Test]
+    public function extra_user_types_come_from_config(): void
+    {
+        config(['teams.entitlements.user_types' => ['member']]);
         $bob = $this->makeUser('bob@example.com');
-        $team = Teams::create('A', $bob);
+        $team = Teams::create('Chor', $bob);
 
-        $related = app(TeamEntitlements::class)->relatedSubjects(new SubjectReference('user', (string) $bob->id()));
-        $this->assertSame(['team:'.$team->id], array_map(fn ($s) => $s->key(), $related));
-
+        $this->assertCount(1, app(TeamEntitlements::class)->relatedSubjects(new SubjectReference('member', (string) $bob->id())));
         $this->assertSame([], app(TeamEntitlements::class)->relatedSubjects(new SubjectReference('email', 'bob@example.com')));
+        $this->assertSame([], app(TeamEntitlements::class)->relatedSubjects(new SubjectReference('team', (string) $team->id)), 'A team does not expand into teams.');
     }
+}
 
-    #[Test]
-    public function products_through_teams_are_listed_once(): void
-    {
-        $bob = $this->makeUser('bob@example.com');
-        $a = Teams::create('A', $bob);
-        $b = Teams::create('B', $bob);
-        Entitlements::grant(Teams::entitlementSubject($a), 'chortarif');
-        Entitlements::grant(Teams::entitlementSubject($b), 'chortarif');
-        Entitlements::grant(Teams::entitlementSubject($b), 'archiv');
+class TeamsTestUser extends Authenticatable
+{
+    protected $table = 'test_users';
 
-        $this->assertSame(['chortarif', 'archiv'], app(TeamEntitlements::class)->productsThroughTeams($bob));
-    }
+    protected $guarded = [];
 }

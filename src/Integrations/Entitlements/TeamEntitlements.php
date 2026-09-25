@@ -24,6 +24,8 @@ class TeamEntitlements
 
     protected const REFERENCE = 'Goldnead\Entitlements\Support\SubjectReference';
 
+    protected bool $registered = false;
+
     public function __construct(protected MembershipService $memberships) {}
 
     public function available(): bool
@@ -132,21 +134,71 @@ class TeamEntitlements
     }
 
     /**
-     * For the subject expansion entitlements does not have yet: given the
-     * subject entitlements is asked about, the team subjects it should also
-     * consider. Duck-typed on purpose (see README, "Docking point"), so it
-     * works as the implementation of a future `SubjectExpander` contract
-     * without this addon requiring entitlements.
+     * Announce this class to entitlements as a subject expander, once.
+     * From then on entitlements itself answers "does this user have access"
+     * with the user's teams included, for grants and for limits.
+     */
+    public function register(): void
+    {
+        if ($this->registered || ! $this->available()) {
+            return;
+        }
+
+        try {
+            $facade = self::FACADE;
+            $root = $facade::getFacadeRoot();
+
+            if (is_object($root) && method_exists($root, 'extendSubjects')) {
+                $root->extendSubjects($this);
+                $this->registered = true;
+            }
+        } catch (Throwable $e) {
+            report($e);
+        }
+    }
+
+    /**
+     * The subject types that name a user, so their id is a membership key.
      *
-     * @param  list<string>  $userTypes  Subject types that name a user.
+     * `user` (the convention for Statamic users), the configured auth model
+     * (ChoirLive: `App\Models\User`) and its morph alias, plus whatever
+     * `teams.entitlements.user_types` adds. A type that is not in this list
+     * (an email, a team) is never expanded: a team id is not a user id.
+     *
+     * @return list<string>
+     */
+    public function userTypes(): array
+    {
+        $types = ['user'];
+        $model = config('auth.providers.users.model');
+
+        if (is_string($model) && class_exists($model)) {
+            $types[] = $model;
+
+            try {
+                $types[] = (new $model)->getMorphClass();
+            } catch (Throwable) {
+                // Not an Eloquent model: its class name is the type.
+            }
+        }
+
+        return array_values(array_unique(array_merge($types, array_map('strval', (array) config('teams.entitlements.user_types', [])))));
+    }
+
+    /**
+     * The expander entitlements calls: given the subject it is asked about,
+     * the team subjects it should also consider. Duck-typed (entitlements'
+     * `Contracts\SubjectExpander` has the same signature), so this addon does
+     * not require entitlements.
+     *
      * @return list<mixed>
      */
-    public function relatedSubjects(object $subject, array $userTypes = ['user']): array
+    public function relatedSubjects(object $subject): array
     {
         $type = (string) ($subject->type ?? '');
         $id = (string) ($subject->id ?? '');
 
-        if ($id === '' || ! in_array($type, $userTypes, true)) {
+        if ($id === '' || ! in_array($type, $this->userTypes(), true)) {
             return [];
         }
 

@@ -41,6 +41,7 @@ class TeamsManager
         protected JoinGuards $guards,
         protected TeamEntitlements $entitlements,
         protected TeamBuyer $buyer,
+        protected Services\Authorizer $authorizer,
     ) {}
 
     // Teams ---------------------------------------------------------------
@@ -289,6 +290,11 @@ class TeamsManager
      */
     public function checkout(Team $team, string|array $products, mixed $payer = null, ?string $returnUrl = null): ?object
     {
+        // Paying for a team is spending its money and choosing its plan: the
+        // payer must be a member holding `manage billing` there. No payer
+        // means the system (a CP action, a job), as everywhere else.
+        $this->authorizer->authorize($payer, $team, 'manage billing');
+
         return $this->buyer->checkout($team, $products, $payer, $returnUrl);
     }
 

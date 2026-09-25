@@ -262,6 +262,7 @@ class ServiceProvider extends AddonServiceProvider
         $register = function (): void {
             $this->app->make(AutomationsBridge::class)->register();
             $this->app->make(WebhookManagerBridge::class)->boot($this->app['events']);
+            $this->app->make(TeamEntitlements::class)->register();
         };
 
         $this->app->booted(function () use ($register): void {

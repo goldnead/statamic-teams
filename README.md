@@ -245,20 +245,20 @@ Teams::allows($user, 'choir-plan');                                          // 
 Teams::allows($user, 'lifetime', new SubjectReference('user', $user->id())); // personally or through a team
 ```
 
-**Docking point.** statamic-entitlements checks exactly one subject per call and has no way to say
-"for this user, also consider these subjects". Until it has one, the expansion happens in
-`Teams::allows()`. The proposed contract for entitlements, which `TeamEntitlements::relatedSubjects()`
-already fulfils by shape:
+**Teams registers itself** with entitlements (`Entitlements::extendSubjects()`, from entitlements
+150b5f2 on) as a subject expander. Then entitlements itself counts a user's teams, for grants and
+for limits, without going through `Teams::allows()`:
 
 ```php
-interface SubjectExpander {
-    /** @return list<SubjectReference> */
-    public function relatedSubjects(SubjectReference $subject): array;
-}
+Entitlements::allows($user, 'choir-plan');           // true while the user is in a team holding it
+Entitlements::consume($user, 'analyses');            // booked at the team: the holder of the limit
+Entitlements::remaining(Teams::entitlementSubject($team), 'analyses');
 ```
 
-used in `EntitlementManager::decide()` and `activeProductSlugsFor()` (read paths only, never in the
-write paths `closeFor`/`revokeFor`, or a person's refund would revoke the team's access).
+A subject is expanded only when its type names a user: `user`, the auth model's class (ChoirLive:
+`App\Models\User`) and its morph alias, plus `teams.entitlements.user_types`. An email or a team
+subject is never expanded; a team id is not a user id. Expansion applies to reads only; a refund
+against a person never touches the team's grant (entitlements' rule).
 
 ## Payments
 
@@ -272,6 +272,10 @@ billing fields (`company`, `name`, `email`, `line1`, `line2`, `postal_code`, `ci
 $result = Teams::checkout($team, 'choir-plan-yearly', auth()->user(), url('/thanks'));
 return redirect($result->checkoutUrl);
 ```
+
+**Required: the payer is a member holding `manage billing` in the team.** Otherwise
+`Teams::checkout()` throws `TeamsException` (`not_member` or `forbidden`) and no checkout starts.
+Pass the signed-in user as payer; only system code (a CP action, a job) may pass none.
 
 **Docking point.** Payments grants access to the buyer's email today. For the team to receive the
 grant, payments' `EntitlementsBridge` has to read `meta.entitlement_subject` when it is present

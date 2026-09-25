@@ -25,3 +25,5 @@
 - Accepting an invitation grants at most what its sender may still give; `updateMemberMeta` follows the role rule.
 - Import: tokens of other teams and fixed ids of other teams are collisions; ids without uuids import idempotently; `expired` and undated invitations do not come back open.
 - `transferOwnership` re-reads both rows under lock and counts the rows it changes.
+- Registers itself with entitlements as subject expander; user subject types from the auth model and `teams.entitlements.user_types`.
+- `Teams::checkout()` requires a payer holding `manage billing` in the team.

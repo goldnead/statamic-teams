@@ -3,6 +3,7 @@
 namespace Goldnead\Teams\Tests\Feature;
 
 use Goldnead\StatamicPayments\Support\Checkout;
+use Goldnead\Teams\Exceptions\TeamsException;
 use Goldnead\Teams\Facades\Teams;
 use Goldnead\Teams\Integrations\Payments\TeamBuyer;
 use Goldnead\Teams\Tests\TestCase;
@@ -44,6 +45,30 @@ class PaymentsTest extends TestCase
         $this->assertSame('anna@example.com', Teams::checkoutBuyer($team, $anna)['email']);
         $this->assertSame('owner@example.com', Teams::checkoutBuyer($team)['email']);
         $this->assertSame('Kammerchor', Teams::checkoutBuyer($team)['name']);
+    }
+
+    #[Test]
+    public function only_a_member_allowed_to_manage_billing_may_pay_for_the_team(): void
+    {
+        Checkout::$started = [];
+        $owner = $this->makeUser('owner@example.com');
+        $member = $this->makeUser('member@example.com');
+        $team = Teams::create('Kammerchor', $owner);
+        Teams::addMember($team, $member);
+
+        foreach ([[$member, TeamsException::FORBIDDEN], [$this->makeUser('stranger@example.com'), TeamsException::NOT_MEMBER]] as [$payer, $reason]) {
+            try {
+                Teams::checkout($team, 'chortarif-jahr', $payer);
+                $this->fail('A checkout started for a payer without the right.');
+            } catch (TeamsException $e) {
+                $this->assertSame($reason, $e->reason);
+            }
+        }
+
+        $this->assertSame([], Checkout::$started);
+
+        Teams::checkout($team, 'chortarif-jahr', $owner);
+        $this->assertCount(1, Checkout::$started);
     }
 
     #[Test]
