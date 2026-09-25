@@ -1,0 +1,94 @@
+{
+    "name": "goldnead/statamic-teams",
+    "description": "Teams for Statamic: workspaces with members, roles per team, invitations by link and join code. A team can hold access and buy on its own billing address.",
+    "type": "statamic-addon",
+    "license": "proprietary",
+    "keywords": [
+        "statamic",
+        "statamic-addon",
+        "teams",
+        "workspaces",
+        "tenancy",
+        "invitations",
+        "roles"
+    ],
+    "authors": [
+        {
+            "name": "Adrian Goldner",
+            "email": "info@adriangoldner.com"
+        }
+    ],
+    "support": {
+        "issues": "https://github.com/goldnead/statamic-teams/issues",
+        "source": "https://github.com/goldnead/statamic-teams"
+    },
+    "require": {
+        "php": "^8.2",
+        "laravel/framework": "^12.40|^13.0",
+        "statamic/cms": "^6.0"
+    },
+    "require-dev": {
+        "goldnead/statamic-brand-context": "^1.13",
+        "larastan/larastan": "^3.0",
+        "laravel/pint": "^1.18",
+        "orchestra/testbench": "^10.0 || ^11.0",
+        "phpunit/phpunit": "^11.0 || ^12.0"
+    },
+    "suggest": {
+        "goldnead/statamic-brand-context": "Makes the invitation lifetime, join-code length and the mail switches editable under Settings, Addon settings.",
+        "goldnead/statamic-email-templates": "Every mail of this addon becomes a template an editor can change in the Control Panel.",
+        "goldnead/statamic-entitlements": "A team becomes a subject: access granted to the team holds for every member.",
+        "goldnead/statamic-payments": "A team can be the buyer, with its own billing address.",
+        "goldnead/statamic-automations": "Every team event (created, member joined, invitation sent ...) becomes an automation trigger.",
+        "goldnead/statamic-webhook-manager": "Every team event becomes a webhook trigger.",
+        "goldnead/statamic-activity": "Team changes are written to the activity log."
+    },
+    "autoload": {
+        "psr-4": {
+            "Goldnead\\Teams\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Goldnead\\Teams\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "statamic": {
+            "name": "Teams",
+            "description": "Workspaces with members, roles per team and invitations.",
+            "url": "https://github.com/goldnead/statamic-teams",
+            "developer": "Adrian Goldner",
+            "developer-url": "https://adriangoldner.dev"
+        },
+        "laravel": {
+            "providers": [
+                "Goldnead\\Teams\\ServiceProvider"
+            ],
+            "aliases": {
+                "Teams": "Goldnead\\Teams\\Facades\\Teams"
+            }
+        }
+    },
+    "scripts": {
+        "test": [
+            "@php vendor/bin/phpunit"
+        ],
+        "lint": [
+            "@php vendor/bin/pint --test"
+        ],
+        "analyse": [
+            "@php vendor/bin/phpstan analyse"
+        ]
+    },
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "composer/installers": true,
+            "php-http/discovery": true,
+            "pixelfear/composer-dist-plugin": true
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
