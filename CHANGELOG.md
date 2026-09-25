@@ -1,5 +1,37 @@
 # Changelog
 
+## 0.3.0 — 2026-09-26
+
+Roles are managed, not only configured.
+
+### Added
+
+- **Teams → Roles** in the CP: every global role with one column per permission, create, rename,
+  change permissions (core publish form, a checkbox per permission), reset to the config, delete.
+  Needs the new Statamic permission `manage team roles`; `manage teams` is not enough.
+- **Roles panel on the team page:** every role that applies there, marked global or team-own;
+  create a role for this team, adjust a global role for it, delete or go back to the global one.
+- Global roles changed in the CP are stored in the new table `team_global_roles` and win over
+  `teams.roles`, which stays the starting point. **Run `php artisan migrate`.**
+- Facade: `createRole()`, `updateRole()`, `deleteRole()`, `resetRole()`, `roleUsage()`,
+  `permissions()`, `registerPermission()`. `roles()` now says `scope`, `source` and
+  `overrides_global` per role. See README, "Managing roles", also for an app-api endpoint sketch.
+- Team permission `manage team roles` (in `teams.permissions`, held by owners, not by `admin` by
+  default): a member may change their team's roles through the API only with it, and only within
+  what they hold.
+- Events `teams.role.created`, `teams.role.updated`, `teams.role.deleted`, with triggers in
+  automations and the webhook manager, activity entries, and rows on the Wiring page.
+- Refusal reasons `role_exists`, `role_protected`, `role_in_use` (409, with `details`),
+  `unknown_permission`, `wildcard_not_allowed`, `invalid_role_handle`. `TeamsException` carries
+  `details`, also in `toArray()`.
+- Permission labels in `lang/*/permissions.php`.
+
+### Security
+
+- `*` only in the owner role; the owner role keeps it and can only be renamed. Owner role and
+  default role cannot be deleted. A role somebody holds is deleted only with a role to move them
+  to, never the owner role. Nobody widens a role beyond what they hold, their own role included.
+
 ## 0.2.0 — 2026-09-25
 
 Findings from the ChoirLive end-to-end check.

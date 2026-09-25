@@ -127,7 +127,7 @@ function reload() {
             @confirm="destroy"
         >
             <div v-if="deleteTarget" class="space-y-5">
-                <Description :text="__(':members members and :invitations open invitations hold the role :role. Choose the role they get instead, then the role is deleted.', { members: deleteTarget.usage.members, invitations: deleteTarget.usage.invitations, role: deleteTarget.title })" />
+                <Description :text="__('The role :role is still held. Members: :members, open invitations: :invitations. Choose the role they get instead, then the role is deleted.', { members: deleteTarget.usage.members, invitations: deleteTarget.usage.invitations, role: deleteTarget.title })" />
                 <Field :label="__('Move to')" :error="errors.role">
                     <Select v-model="reassignTo" :options="targets" :placeholder="__('Choose a role')" />
                 </Field>

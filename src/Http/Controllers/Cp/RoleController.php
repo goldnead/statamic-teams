@@ -79,13 +79,14 @@ class RoleController extends Controller
         $columns = [
             Column::make('title')->label(__('Name'))->sortable(true),
             Column::make('handle')->label(__('Handle'))->sortable(true)->visible(false),
+            // Before the matrix: with many permissions the table scrolls
+            // sideways, and who holds a role is what decides a deletion.
+            Column::make('members')->label(__('teams::cp.members'))->numeric(true)->sortable(true),
         ];
 
         foreach (array_values($permissions) as $index => $label) {
             $columns[] = Column::make('perm_'.$index)->label($label)->sortable(false);
         }
-
-        $columns[] = Column::make('members')->label(__('teams::cp.members'))->numeric(true)->sortable(true);
 
         return Inertia::render('teams::Roles/Index', [
             'roles' => $rows,
@@ -120,8 +121,8 @@ class RoleController extends Controller
             array_values((array) ($values['permissions'] ?? [])),
         ));
 
-        session()->flash('success', __('teams::messages.role_created'));
-
+        // No flash: the publish form toasts "Saved" itself, a second toast
+        // after the redirect would say the same twice.
         return ['saved' => true, 'redirect' => cp_route('teams.roles.index')];
     }
 

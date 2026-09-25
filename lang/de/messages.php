@@ -57,7 +57,7 @@ return [
         'team_full' => 'In diesem Team ist kein Platz mehr frei.',
         'role_exists' => 'Eine Rolle mit diesem Handle gibt es schon.',
         'role_protected' => 'Die Inhaber-Rolle und die Standardrolle bleiben: nicht löschbar, und niemand wird in die Inhaber-Rolle umgestellt. Die Inhaber-Rolle hat immer alle Rechte.',
-        'role_in_use' => 'Diese Rolle haben :members Mitglieder und :invitations offene Einladungen. Stelle sie erst auf eine andere Rolle um.',
+        'role_in_use' => 'Diese Rolle ist noch vergeben (Mitglieder: :members, offene Einladungen: :invitations). Stelle sie erst auf eine andere Rolle um.',
         'unknown_permission' => 'Diese Rechte gibt es nicht: :permissions',
         'wildcard_not_allowed' => 'Alle Rechte (*) hat nur die Inhaber-Rolle.',
         'invalid_role_handle' => 'Das Handle besteht aus Kleinbuchstaben, Ziffern, _ und -, höchstens 64 Zeichen.',

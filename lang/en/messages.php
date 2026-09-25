@@ -57,7 +57,7 @@ return [
         'team_full' => 'This team has no free seats.',
         'role_exists' => 'A role with this handle exists already.',
         'role_protected' => 'The owner role and the default role stay: they cannot be deleted, and nobody is moved into the owner role. The owner role always holds every permission.',
-        'role_in_use' => ':members members and :invitations open invitations hold this role. Move them to another role first.',
+        'role_in_use' => 'This role is still held (members: :members, open invitations: :invitations). Move them to another role first.',
         'unknown_permission' => 'These permissions do not exist: :permissions',
         'wildcard_not_allowed' => 'Only the owner role holds every permission (*).',
         'invalid_role_handle' => 'The handle consists of lowercase letters, digits, _ and -, at most 64 characters.',

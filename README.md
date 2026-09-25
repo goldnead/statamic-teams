@@ -6,7 +6,9 @@ purchase can belong to the team instead of one person.
 
 - Teams, memberships with a role and free `meta` per member, invitations (token stored only as a
   hash), join codes that survive being read aloud.
-- Roles and permissions per team, not global. Statamic roles stay for the Control Panel.
+- Roles and permissions per team, not global. Statamic roles stay for the Control Panel. Roles are
+  managed in the CP (**Teams → Roles**, a permission matrix), per team on the team page, and
+  through the facade.
 - Middleware `teams.current`: which team a request is about, and that the user is in it.
   403 for a stranger, 422 for a request that names two different teams.
 - A team is a subject in [statamic-entitlements](https://github.com/goldnead/statamic-entitlements):
@@ -67,7 +69,7 @@ In Antlers, `{{ teams:switch_form }}`, `{{ teams:members }}`, `{{ teams:invite_f
 | **Team** | `Goldnead\Teams\Models\Team`: `id`, `uuid`, `name`, `type` (`team`, `personal`, or your own), `owner_id`, `join_method` (`invitation_only`, `join_code`), `join_code`, `settings`, `billing`. |
 | **Membership** | One user in one team: `role`, `meta` (free fields, e.g. a voice part), `is_current`, `joined_at`. Users are stored by string key, so UUIDs (file users) and integers (Eloquent) both work. |
 | **Invitation** | Addressed to an email, with a role and `meta` copied onto the membership. Expires (default 7 days), is bound to its address, works once. Inviting the same address again replaces the link. |
-| **Role** | Defined in `teams.roles`; a team can add its own in `team_roles`. `owner` holds every permission and cannot be removed from the last owner. |
+| **Role** | Global roles start from `teams.roles`; changes made in the CP (table `team_global_roles`) win, and each can be reset to the config. A team can add or adjust roles for itself (`team_roles`); a team role with a global handle replaces it for that team. `owner` holds every permission and cannot be removed from the last owner. |
 
 **Nobody hands out more than they hold.** Whoever assigns a role, invites into it or removes someone
 holding it must hold every permission of that role; a role with `*` and the owner role only by an
@@ -79,6 +81,30 @@ covers editing someone else's membership fields (`updateMemberMeta`).
 still be in the team and hold every permission of the invited role. If not, the invitation is not
 refused (the invitee acted in good faith) but grants only `default_role`; the team can raise it.
 Invitations from the CP or an import (no sender) keep their role.
+
+### Managing roles
+
+In the CP, **Teams → Roles** lists the global roles with one column per permission, and creates,
+renames, changes, resets and deletes them (core publish form with a checkbox per permission). The
+team page has a **Roles** panel: every role that applies there, marked **Global** or **This team**,
+and roles created or adjusted for that team only. Both need the Statamic permission
+`manage team roles`; `manage teams` is not enough.
+
+The rules hold for every caller, CP and API alike:
+
+- `*` (every permission) belongs to the owner role only. The owner role can be renamed, not
+  narrowed. Neither the owner role nor `default_role` can be deleted.
+- A role lists only known permissions: `teams.permissions`, plus what code registers with
+  `Teams::registerPermission('edit scores', 'Edit scores')` (in a service provider's `boot()`).
+  Labels come from `teams::permissions.<handle>` or the translator.
+- A role somebody holds (member or open invitation) is deleted only together with a role to move
+  them to, never into the owner role. Without one the refusal is `role_in_use` with the counts in
+  `details`. Deleting a team's version of a global role moves nobody: they get the global role back.
+- Global roles are site business: a team member (an actor) is refused.
+- A team member changes the roles of their team only with the team permission `manage team roles`
+  (not in `admin` by default), and only within what they hold: every permission they write, and of
+  every role they change, replace, delete or move people into, must be theirs. Their own role is an
+  owner's business. So `change roles` alone never lets an admin widen a role.
 
 Nobody is put into a team without consent: the Control Panel and the front end invite, they do not add.
 `Teams::addMember()` exists for code that has its own consent (an import, a checkout).
@@ -105,7 +131,12 @@ A refusal is a `Goldnead\Teams\Exceptions\TeamsException` with a stable `reason`
 | `unknown_role`, `last_owner`, `already_owner`, `personal_team`, `team_mismatch`, `team_required` | 422 | |
 | `import_collision` | 409 | a fixed id belongs to another team |
 | `read_only` | 423 | |
+| `role_exists`, `role_protected`, `unknown_permission`, `wildcard_not_allowed`, `invalid_role_handle` | 422 | role editor |
+| `role_in_use` | 409 | `details`: `members`, `invitations` |
 | anything a join guard returns, e.g. `team_full` | 422 | |
+
+`TeamsException::toArray()` (the JSON body) is `{reason, message}`, plus `details` where a reason has
+them.
 
 ```php
 use Goldnead\Teams\Facades\Teams;
@@ -147,7 +178,16 @@ Teams::guardJoining(Closure $guard): void             // fn (Team $team, string 
 // Roles
 Teams::can($user, Team $team, string $permission): bool
 Teams::roleOf($user, Team $team): ?string
-Teams::roles(?Team $team = null): array
+Teams::roles(?Team $team = null): array             // handle => label, permissions, scope (global|team), source, overrides_global
+Teams::permissions(): array                          // handle => translated label
+Teams::registerPermission(string $handle, ?string $label = null): void
+
+// Managing roles: without $team a global role (system only), with $team that team's own
+Teams::createRole(string $handle, string $label, array $permissions = [], ?Team $team = null, $actor = null): array
+Teams::updateRole(string $handle, array $attributes, ?Team $team = null, $actor = null): array   // label, permissions
+Teams::deleteRole(string $handle, ?Team $team = null, ?string $reassignTo = null, $actor = null): int  // members moved
+Teams::resetRole(string $handle): array               // a global role back to teams.roles
+Teams::roleUsage(string $handle, ?Team $team = null): array   // members, invitations
 
 // Entitlements and payments
 Teams::entitlementSubject(Team $team)                 // SubjectReference('team', id)
@@ -162,6 +202,22 @@ Teams::import(array $data): Team
 ```
 
 `$user` is anything that names a user: a Statamic user, an Authenticatable, or its id.
+
+**Roles over app-api.** statamic-app-api does not expose role management yet. An endpoint for it is
+a thin controller in the shape of its `TeamController::changeRole()`: resolve the team the caller is
+a member of, then pass the signed-in user as `$actor`, so the team permission `manage team roles`
+and the no-escalation rule apply:
+
+```php
+// GET    /teams/{team}/roles                 Teams::roles($team) + Teams::permissions()
+// POST   /teams/{team}/roles                 Teams::createRole($handle, $label, $permissions, $team, $user)
+// PATCH  /teams/{team}/roles/{role}          Teams::updateRole($role, $request->only('label', 'permissions'), $team, $user)
+// DELETE /teams/{team}/roles/{role}?reassign_to=member
+//                                            Teams::deleteRole($role, $team, $reassignTo, $user)
+```
+
+A `TeamsException` answers with its `status()` and `toArray()`. Global roles are not for app-api:
+with an actor, every global call is `forbidden`.
 
 `Team` offers `hasMember($user)`, `roleOf($user)`, `membershipOf($user)`, `isOwner($user)`,
 `isPersonal()`, `isReadOnly()`, `allowsJoinCode()`, `setting($key)` and `summary()` (the fields
@@ -309,7 +365,13 @@ and plain fields (no tokens, no join codes):
 `teams.team.created`, `teams.team.updated`, `teams.team.deleted`, `teams.team.ownership_transferred`,
 `teams.member.joined` (`via`: `created`, `added`, `invitation`, `join_code`), `teams.member.left`
 (`reason`: `left`, `removed`), `teams.member.role_changed`, `teams.invitation.sent`,
-`teams.invitation.accepted`, `teams.invitation.revoked`.
+`teams.invitation.accepted`, `teams.invitation.revoked`, `teams.role.created`, `teams.role.updated`
+(`changes`: `label`, `permissions`), `teams.role.deleted` (`reassigned_to`, `reassigned`).
+
+Role events carry `role` (`handle`, `label`, `permissions`, `scope`) and `team`, which is `null`
+for a global role (then `team_type` is `null` too, a flow filtered on a team type does not fire, and
+the activity entry has no subject). Members moved by a deletion each fire
+`teams.member.role_changed` as well.
 
 Every payload carries `team_type` at the top level (`personal`, `team` or a type of your own), the
 same value as `team.type`.

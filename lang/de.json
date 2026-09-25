@@ -110,5 +110,5 @@
     "This team uses the global roles only. Add a role of its own, or adjust a global role for this team.": "Dieses Team nutzt nur die globalen Rollen. Lege eine eigene Rolle an oder passe eine globale Rolle für dieses Team an.",
     "This team, replaces global": "Dieses Team, ersetzt global",
     "What a member holding this role may do in this team.": "Was ein Mitglied mit dieser Rolle in diesem Team darf.",
-    ":members members and :invitations open invitations hold the role :role. Choose the role they get instead, then the role is deleted.": ":members Mitglieder und :invitations offene Einladungen haben die Rolle :role. Wähle die Rolle, die sie stattdessen bekommen, dann wird die Rolle gelöscht."
+    "The role :role is still held. Members: :members, open invitations: :invitations. Choose the role they get instead, then the role is deleted.": "Die Rolle :role ist noch vergeben. Mitglieder: :members, offene Einladungen: :invitations. Wähle die Rolle, die sie stattdessen bekommen, dann wird die Rolle gelöscht."
 }
