@@ -2,6 +2,10 @@
 
 namespace Goldnead\Teams\Integrations\EmailTemplates;
 
+use Goldnead\Teams\Events\InvitationSent;
+use Goldnead\Teams\Events\MemberJoined;
+use Goldnead\Teams\Events\MemberLeft;
+use Goldnead\Teams\Events\MemberRoleChanged;
 use Throwable;
 
 /**
@@ -39,6 +43,81 @@ class MailTemplates
         'member_removed' => ['team.name', 'member.name'],
         'role_changed' => ['team.name', 'member.name', 'role.from', 'role.to'],
     ];
+
+    /** Container alias of email-templates' registry (≥ fc0df26). */
+    public const REGISTRY = 'email-templates.registry';
+
+    /** Mail key => the event that sends it. */
+    public const EVENTS = [
+        'invitation' => InvitationSent::class,
+        'member_joined' => MemberJoined::class,
+        'member_removed' => MemberLeft::class,
+        'role_changed' => MemberRoleChanged::class,
+    ];
+
+    /** Example values for Live Preview and the test send. */
+    public const EXAMPLES = [
+        'team.name' => 'Kammerchor Köln',
+        'inviter.name' => 'Olga Brandt',
+        'member.name' => 'Clara Voss',
+        'member.email' => 'clara@example.com',
+        'role' => 'Member',
+        'role.from' => 'Member',
+        'role.to' => 'Admin',
+        'email' => 'clara@example.com',
+        'accept_url' => 'https://example.com/teams/invitations/EXAMPLE',
+        'expires_at' => '2. Oktober 2026',
+    ];
+
+    /**
+     * Announce every mail to email-templates' registry: who sends it, on
+     * which occasion, which placeholders, and the shipped text. The CP then
+     * shows "Sent on: Teams: …" and the placeholder list. Closures, so labels
+     * are translated in the locale of the request that shows them.
+     *
+     * Returns false when the registry is not there (older email-templates or
+     * none); the provider then falls back to the tagged import source.
+     */
+    public function registerWithRegistry(): bool
+    {
+        if (! (bool) config('teams.integrations.email_templates', true) || ! app()->bound(self::REGISTRY)) {
+            return false;
+        }
+
+        $registry = app(self::REGISTRY);
+
+        foreach (array_keys(self::MAILS) as $mail) {
+            $registry->register($this->definition($mail));
+        }
+
+        return true;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function definition(string $mail): array
+    {
+        $placeholders = [];
+
+        foreach (self::MAILS[$mail] as $variable) {
+            $handle = str_replace('.', '_', $variable);
+            $placeholders[$variable] = [
+                'label' => fn () => (string) __("teams::mail.placeholders.{$handle}"),
+                'example' => self::EXAMPLES[$variable],
+            ];
+        }
+
+        return [
+            'slug' => $this->slug($mail),
+            'addon' => 'Teams',
+            'title' => fn () => (string) __("teams::mail.{$mail}.title"),
+            'trigger' => fn () => (string) __("teams::mail.{$mail}.trigger"),
+            'event' => self::EVENTS[$mail],
+            'placeholders' => $placeholders,
+            'defaults' => fn () => $this->default($mail),
+        ];
+    }
 
     public function available(): bool
     {
@@ -132,7 +211,7 @@ class MailTemplates
         try {
             $entry = app(self::COLLECTION_MANAGER)->findBySlug($this->slug($mail));
 
-            return $entry?->editUrl();
+            return is_object($entry) && method_exists($entry, 'editUrl') ? $entry->editUrl() : null;
         } catch (Throwable) {
             return null;
         }

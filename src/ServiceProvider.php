@@ -92,12 +92,6 @@ class ServiceProvider extends AddonServiceProvider
         }
 
         $this->app->scoped(CurrentTeam::class);
-
-        // Picked up by `email-templates:import`. Tagged only when the
-        // interface exists: the source class implements it.
-        if (interface_exists('Goldnead\EmailTemplates\Contracts\EmailTemplateSource')) {
-            $this->app->tag([TeamsTemplateSource::class], 'email-templates.sources');
-        }
     }
 
     /**
@@ -114,6 +108,29 @@ class ServiceProvider extends AddonServiceProvider
         // build a second, empty registry that nobody reads.
         if (class_exists(SettingsRegistry::class)) {
             $this->app->make(SettingsRegistry::class)->register(Settings::class);
+        }
+
+        $this->bootMailTemplates();
+    }
+
+    /**
+     * The mails as templates in email-templates. With its registry (the
+     * current way) each mail is announced with occasion, event and
+     * placeholders, and `email-templates:import` takes the defaults from
+     * there. Only an older email-templates without registry gets the tagged
+     * import source; both at once would offer every default twice.
+     *
+     * In `boot()`: every provider's `register()` has run, so the registry
+     * binding is there if the package is.
+     */
+    protected function bootMailTemplates(): void
+    {
+        if ($this->app->make(MailTemplates::class)->registerWithRegistry()) {
+            return;
+        }
+
+        if (interface_exists('Goldnead\EmailTemplates\Contracts\EmailTemplateSource')) {
+            $this->app->tag([TeamsTemplateSource::class], 'email-templates.sources');
         }
     }
 

@@ -28,4 +28,3 @@ parameters:
     # signatures instead of being reported as unknown. Scanned, not analysed.
     scanFiles:
         - tests/Fakes/webhook-manager.php
-        - tests/Fakes/email-templates.php
