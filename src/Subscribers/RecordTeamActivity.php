@@ -42,8 +42,9 @@ class RecordTeamActivity
 
         try {
             $facade = self::FACADE;
+            // A global role belongs to no team: no subject then.
             $facade::record($event::handle(), array_filter([
-                'subject_type' => Team::MORPH_ALIAS,
+                'subject_type' => $teamId === null ? null : Team::MORPH_ALIAS,
                 'subject_id' => $teamId === null ? null : (string) $teamId,
                 'source' => 'statamic-teams',
                 'properties' => $payload,

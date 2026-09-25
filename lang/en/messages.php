@@ -3,9 +3,17 @@
 return [
     'nav' => 'Teams',
     'nav_wiring' => 'Wiring',
+    'nav_roles' => 'Roles',
     'permission_group' => 'Teams',
     'permission_view' => 'View teams',
     'permission_manage' => 'Manage teams, members and invitations',
+    'permission_roles' => 'Manage team roles and their permissions',
+
+    'role_created' => 'Role created.',
+    'role_updated' => 'Role saved.',
+    'role_deleted' => 'Role deleted.',
+    'role_deleted_moved' => 'Role deleted, :count members moved.',
+    'role_reset' => 'Role reset to its default.',
     'permission_settings' => 'Manage teams settings',
 
     'personal_team' => 'Personal',
@@ -47,5 +55,11 @@ return [
         'read_only' => 'This team is read-only.',
         'join_refused' => 'Joining this team is not possible right now.',
         'team_full' => 'This team has no free seats.',
+        'role_exists' => 'A role with this handle exists already.',
+        'role_protected' => 'The owner role and the default role stay: they cannot be deleted, and nobody is moved into the owner role. The owner role always holds every permission.',
+        'role_in_use' => ':members members and :invitations open invitations hold this role. Move them to another role first.',
+        'unknown_permission' => 'These permissions do not exist: :permissions',
+        'wildcard_not_allowed' => 'Only the owner role holds every permission (*).',
+        'invalid_role_handle' => 'The handle consists of lowercase letters, digits, _ and -, at most 64 characters.',
     ],
 ];

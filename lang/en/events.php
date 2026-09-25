@@ -11,4 +11,7 @@ return [
     'invitation_sent' => ['label' => 'Invitation sent', 'description' => 'An address was invited, or invited again. Carries no link.'],
     'invitation_accepted' => ['label' => 'Invitation accepted', 'description' => 'The invited person accepted and is now a member.'],
     'invitation_revoked' => ['label' => 'Invitation withdrawn', 'description' => 'An open invitation was withdrawn; its link stopped working.'],
+    'role_created' => ['label' => 'Role created', 'description' => 'A new role exists: global or for one team only (role.scope). Also when a deleted default role is reset.'],
+    'role_updated' => ['label' => 'Role changed', 'description' => 'The name or the permissions of a role changed. The field changes says which.'],
+    'role_deleted' => ['label' => 'Role deleted', 'description' => 'A role is gone. reassigned_to says which role its members were moved to, reassigned how many.'],
 ];

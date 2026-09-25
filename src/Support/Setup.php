@@ -16,7 +16,7 @@ use Inertia\Response;
  */
 final class Setup
 {
-    public const TABLES = ['teams', 'team_members', 'team_invitations', 'team_roles'];
+    public const TABLES = ['teams', 'team_members', 'team_invitations', 'team_roles', 'team_global_roles'];
 
     public static function guard(string $title): ?Response
     {

@@ -12,10 +12,12 @@ use Goldnead\Teams\Services\ImportService;
 use Goldnead\Teams\Services\InvitationService;
 use Goldnead\Teams\Services\JoinService;
 use Goldnead\Teams\Services\MembershipService;
+use Goldnead\Teams\Services\RoleService;
 use Goldnead\Teams\Services\TeamService;
 use Goldnead\Teams\Support\CurrentTeam;
 use Goldnead\Teams\Support\IssuedInvitation;
 use Goldnead\Teams\Support\JoinGuards;
+use Goldnead\Teams\Support\Permissions;
 use Goldnead\Teams\Support\Roles;
 use Illuminate\Support\Collection;
 
@@ -240,10 +242,83 @@ class TeamsManager
         return $team->roleOf($user);
     }
 
-    /** @return array<string, array{label: string, permissions: list<string>, custom: bool}> */
+    /**
+     * Every role: the global ones, and with `$team` that team's own on top.
+     * Each carries `scope` (`global`/`team`) and `source`.
+     *
+     * @return array<string, array{label: string, permissions: list<string>, custom: bool, scope: string, source: string, overrides_global: bool}>
+     */
     public function roles(?Team $team = null): array
     {
         return $this->roles->all($team);
+    }
+
+    /**
+     * Create a role. Without `$team` a global one (system only: an actor is
+     * refused), with `$team` one of that team (an actor needs
+     * `manage team roles` there and can only grant what they hold). A team
+     * role with the handle of a global role replaces it for that team.
+     *
+     * @param  list<string>  $permissions
+     * @return array<string, mixed>
+     */
+    public function createRole(string $handle, string $label, array $permissions = [], ?Team $team = null, mixed $actor = null): array
+    {
+        return app(RoleService::class)->create($handle, $label, $permissions, $team, $actor);
+    }
+
+    /**
+     * Change label and/or permissions. With `$team`: that team's own role.
+     *
+     * @param  array{label?: string, permissions?: list<string>}  $attributes
+     * @return array<string, mixed>
+     */
+    public function updateRole(string $handle, array $attributes, ?Team $team = null, mixed $actor = null): array
+    {
+        return app(RoleService::class)->update($handle, $attributes, $team, $actor);
+    }
+
+    /**
+     * Delete a role. Held by somebody, it needs `$reassignTo`, else a
+     * `role_in_use` refusal with the counts in `details`.
+     *
+     * @return int memberships moved
+     */
+    public function deleteRole(string $handle, ?Team $team = null, ?string $reassignTo = null, mixed $actor = null): int
+    {
+        return app(RoleService::class)->delete($handle, $team, $reassignTo, $actor);
+    }
+
+    /**
+     * Drop the CP's changes to a configured global role (also a deletion).
+     *
+     * @return array<string, mixed>
+     */
+    public function resetRole(string $handle): array
+    {
+        return app(RoleService::class)->reset($handle);
+    }
+
+    /** @return array{members: int, invitations: int} */
+    public function roleUsage(string $handle, ?Team $team = null): array
+    {
+        return app(RoleService::class)->usage($handle, $team);
+    }
+
+    /**
+     * The team permissions a role can hold, with translated labels.
+     *
+     * @return array<string, string>
+     */
+    public function permissions(): array
+    {
+        return app(Permissions::class)->all();
+    }
+
+    /** Offer a permission of the host or another addon in the role editor. */
+    public function registerPermission(string $handle, ?string $label = null): void
+    {
+        app(Permissions::class)->register($handle, $label);
     }
 
     // Entitlements and payments ------------------------------------------

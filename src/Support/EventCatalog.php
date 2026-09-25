@@ -9,6 +9,9 @@ use Goldnead\Teams\Events\MemberJoined;
 use Goldnead\Teams\Events\MemberLeft;
 use Goldnead\Teams\Events\MemberRoleChanged;
 use Goldnead\Teams\Events\OwnershipTransferred;
+use Goldnead\Teams\Events\RoleCreated;
+use Goldnead\Teams\Events\RoleDeleted;
+use Goldnead\Teams\Events\RoleUpdated;
 use Goldnead\Teams\Events\TeamCreated;
 use Goldnead\Teams\Events\TeamDeleted;
 use Goldnead\Teams\Events\TeamEvent;
@@ -38,6 +41,9 @@ class EventCatalog
         InvitationSent::class => ['mail' => 'invitation'],
         InvitationAccepted::class => ['mail' => null],
         InvitationRevoked::class => ['mail' => null],
+        RoleCreated::class => ['mail' => null],
+        RoleUpdated::class => ['mail' => null],
+        RoleDeleted::class => ['mail' => null],
     ];
 
     /**

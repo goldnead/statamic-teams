@@ -118,6 +118,7 @@ class AutomationsBridge
     {
         $team = ['id' => 'integer', 'uuid' => 'string', 'name' => 'string', 'type' => 'string', 'owner_id' => 'string'];
         $user = ['id' => 'string', 'email' => 'string', 'name' => 'string'];
+        $role = ['handle' => 'string', 'label' => 'string', 'permissions' => 'array', 'scope' => 'string'];
         $invitation = ['id' => 'integer', 'uuid' => 'string', 'team_id' => 'integer', 'email' => 'string', 'role' => 'string', 'status' => 'string', 'expires_at' => 'datetime'];
 
         return match ($handle) {
@@ -131,6 +132,10 @@ class AutomationsBridge
             'teams.invitation.sent' => ['team' => $team, 'invitation' => $invitation, 'resent' => 'boolean', 'actor_id' => 'string'],
             'teams.invitation.accepted' => ['team' => $team, 'invitation' => $invitation, 'user' => $user],
             'teams.invitation.revoked' => ['team' => $team, 'invitation' => $invitation, 'actor_id' => 'string'],
+            // `team` is empty for a global role (`role.scope = global`).
+            'teams.role.created' => ['role' => $role, 'team' => $team, 'actor_id' => 'string'],
+            'teams.role.updated' => ['role' => $role, 'team' => $team, 'changes' => 'array', 'actor_id' => 'string'],
+            'teams.role.deleted' => ['role' => $role, 'team' => $team, 'reassigned_to' => 'string', 'reassigned' => 'integer', 'actor_id' => 'string'],
             default => [],
         };
     }

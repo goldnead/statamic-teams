@@ -11,4 +11,7 @@ return [
     'invitation_sent' => ['label' => 'Einladung verschickt', 'description' => 'Eine Adresse wurde eingeladen oder erneut eingeladen. Ohne Link.'],
     'invitation_accepted' => ['label' => 'Einladung angenommen', 'description' => 'Die eingeladene Person hat angenommen und ist jetzt Mitglied.'],
     'invitation_revoked' => ['label' => 'Einladung zurückgezogen', 'description' => 'Eine offene Einladung wurde zurückgezogen, ihr Link funktioniert nicht mehr.'],
+    'role_created' => ['label' => 'Rolle angelegt', 'description' => 'Eine Rolle gibt es neu: global oder nur in einem Team (role.scope). Auch, wenn eine gelöschte Standardrolle zurückgesetzt wird.'],
+    'role_updated' => ['label' => 'Rolle geändert', 'description' => 'Name oder Rechte einer Rolle haben sich geändert. Das Feld changes nennt, was davon.'],
+    'role_deleted' => ['label' => 'Rolle gelöscht', 'description' => 'Eine Rolle ist weg. reassigned_to sagt, in welche Rolle ihre Mitglieder umgestellt wurden, reassigned wie viele.'],
 ];

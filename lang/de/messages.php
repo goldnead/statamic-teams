@@ -3,9 +3,17 @@
 return [
     'nav' => 'Teams',
     'nav_wiring' => 'Verdrahtung',
+    'nav_roles' => 'Rollen',
     'permission_group' => 'Teams',
     'permission_view' => 'Teams ansehen',
     'permission_manage' => 'Teams, Mitglieder und Einladungen verwalten',
+    'permission_roles' => 'Team-Rollen und ihre Rechte verwalten',
+
+    'role_created' => 'Rolle angelegt.',
+    'role_updated' => 'Rolle gespeichert.',
+    'role_deleted' => 'Rolle gelöscht.',
+    'role_deleted_moved' => 'Rolle gelöscht, :count Mitglieder umgestellt.',
+    'role_reset' => 'Rolle auf den Standard zurückgesetzt.',
     'permission_settings' => 'Teams-Einstellungen verwalten',
 
     'personal_team' => 'Persönlich',
@@ -47,5 +55,11 @@ return [
         'read_only' => 'Dieses Team ist schreibgeschützt.',
         'join_refused' => 'Beitreten ist bei diesem Team gerade nicht möglich.',
         'team_full' => 'In diesem Team ist kein Platz mehr frei.',
+        'role_exists' => 'Eine Rolle mit diesem Handle gibt es schon.',
+        'role_protected' => 'Die Inhaber-Rolle und die Standardrolle bleiben: nicht löschbar, und niemand wird in die Inhaber-Rolle umgestellt. Die Inhaber-Rolle hat immer alle Rechte.',
+        'role_in_use' => 'Diese Rolle haben :members Mitglieder und :invitations offene Einladungen. Stelle sie erst auf eine andere Rolle um.',
+        'unknown_permission' => 'Diese Rechte gibt es nicht: :permissions',
+        'wildcard_not_allowed' => 'Alle Rechte (*) hat nur die Inhaber-Rolle.',
+        'invalid_role_handle' => 'Das Handle besteht aus Kleinbuchstaben, Ziffern, _ und -, höchstens 64 Zeichen.',
     ],
 ];

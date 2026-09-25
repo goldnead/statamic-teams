@@ -49,6 +49,21 @@ class TeamsException extends RuntimeException
 
     public const READ_ONLY = 'read_only';
 
+    public const ROLE_EXISTS = 'role_exists';
+
+    /** The owner role or the default role: not deleted, not narrowed. */
+    public const ROLE_PROTECTED = 'role_protected';
+
+    /** Members or open invitations hold the role; `details` says how many. */
+    public const ROLE_IN_USE = 'role_in_use';
+
+    public const UNKNOWN_PERMISSION = 'unknown_permission';
+
+    /** `*` written into a role other than the owner role. */
+    public const WILDCARD = 'wildcard_not_allowed';
+
+    public const INVALID_ROLE_HANDLE = 'invalid_role_handle';
+
     /** @var array<string, int> */
     protected const STATUS = [
         self::NOT_MEMBER => 403,
@@ -69,16 +84,30 @@ class TeamsException extends RuntimeException
         self::TEAM_MISMATCH => 422,
         self::TEAM_REQUIRED => 422,
         self::READ_ONLY => 423,
+        self::ROLE_EXISTS => 422,
+        self::ROLE_PROTECTED => 422,
+        self::ROLE_IN_USE => 409,
+        self::UNKNOWN_PERMISSION => 422,
+        self::WILDCARD => 422,
+        self::INVALID_ROLE_HANDLE => 422,
     ];
 
-    public function __construct(public readonly string $reason, ?string $message = null)
-    {
-        parent::__construct($message ?? __("teams::messages.errors.{$reason}"));
+    /**
+     * @param  array<string, mixed>  $details  Machine-readable context, e.g.
+     *                                         `['members' => 3]` for `role_in_use`. Part of `toArray()`.
+     */
+    public function __construct(
+        public readonly string $reason,
+        ?string $message = null,
+        public readonly array $details = [],
+    ) {
+        parent::__construct($message ?? __("teams::messages.errors.{$reason}", $details));
     }
 
-    public static function because(string $reason): self
+    /** @param  array<string, mixed>  $details */
+    public static function because(string $reason, array $details = []): self
     {
-        return new self($reason);
+        return new self($reason, null, $details);
     }
 
     public function status(): int
@@ -86,9 +115,9 @@ class TeamsException extends RuntimeException
         return self::STATUS[$this->reason] ?? 422;
     }
 
-    /** @return array{reason: string, message: string} */
+    /** @return array<string, mixed> */
     public function toArray(): array
     {
-        return ['reason' => $this->reason, 'message' => $this->getMessage()];
+        return ['reason' => $this->reason, 'message' => $this->getMessage()] + ($this->details === [] ? [] : ['details' => $this->details]);
     }
 }

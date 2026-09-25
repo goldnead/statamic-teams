@@ -49,8 +49,14 @@ return [
     | Team permissions
     |--------------------------------------------------------------------------
     |
-    | The permissions this addon checks itself. A site may add its own and
-    | check them with `Teams::can($user, $team, 'your permission')`.
+    | The permissions this addon checks itself, and those a role can be given
+    | in the CP role editor. A site may add its own here, or from code with
+    | `Teams::registerPermission('edit scores', 'Edit scores')`, and check
+    | them with `Teams::can($user, $team, 'edit scores')`. Labels come from
+    | `teams::permissions.<handle>` or the translator.
+    |
+    | `manage team roles` lets a member create and change the roles of their
+    | team (app-api, front end). Nobody grants more than they hold.
     |
     */
 
@@ -58,6 +64,7 @@ return [
         'invite members',
         'remove members',
         'change roles',
+        'manage team roles',
         'update team',
         'delete team',
         'view billing',

@@ -7,17 +7,82 @@ use Goldnead\Teams\Models\Team;
 /**
  * Roles and permissions inside a team.
  *
- * A role is looked up in the team first (`team_roles`), then in
- * `teams.roles`. The owner role always holds every permission, whatever a
- * team or the config writes for it: a team whose owner can lock himself out
- * is a support ticket.
+ * Three layers, the later one wins per handle: `teams.roles` (the starting
+ * point), the global roles changed in the CP (`team_global_roles`, see
+ * {@see GlobalRoleStore}), and the roles of one team (`team_roles`). The
+ * owner role always holds every permission, whatever a team, the CP or the
+ * config writes for it: a team whose owner can lock himself out is a
+ * support ticket.
+ *
+ * Each role says where it comes from: `scope` is `global` or `team`;
+ * `source` is `config` (as configured), `customised` (a config role changed
+ * in the CP), `cp` (created in the CP) or `team`. `overrides_global` marks a
+ * team role that replaces a global one of the same handle for that team.
  */
 class Roles
 {
     /**
-     * @return array<string, array{label: string, permissions: list<string>, custom: bool}>
+     * @return array<string, array{label: string, permissions: list<string>, custom: bool, scope: string, source: string, overrides_global: bool}>
      */
     public function all(?Team $team = null): array
+    {
+        $roles = $this->global();
+
+        if ($team !== null && $team->exists) {
+            foreach ($team->roles()->get() as $role) {
+                $roles[$role->handle] = [
+                    'label' => $role->label,
+                    'permissions' => $this->normalise($role->handle, (array) ($role->permissions ?? [])),
+                    'custom' => true,
+                    'scope' => 'team',
+                    'source' => 'team',
+                    'overrides_global' => array_key_exists($role->handle, $roles),
+                ];
+            }
+        }
+
+        return $roles;
+    }
+
+    /**
+     * The global roles: config, then the CP's changes.
+     *
+     * @return array<string, array{label: string, permissions: list<string>, custom: bool, scope: string, source: string, overrides_global: bool}>
+     */
+    public function global(): array
+    {
+        $roles = [];
+
+        foreach ($this->configured() as $handle => $role) {
+            $roles[$handle] = $role + ['custom' => false, 'scope' => 'global', 'source' => 'config', 'overrides_global' => false];
+        }
+
+        foreach (app(GlobalRoleStore::class)->rows() as $handle => $row) {
+            if ($row->removed) {
+                unset($roles[$handle]);
+
+                continue;
+            }
+
+            $roles[$handle] = [
+                'label' => $row->label,
+                'permissions' => $this->normalise($handle, (array) ($row->permissions ?? [])),
+                'custom' => false,
+                'scope' => 'global',
+                'source' => array_key_exists($handle, $roles) ? 'customised' : 'cp',
+                'overrides_global' => false,
+            ];
+        }
+
+        return $roles;
+    }
+
+    /**
+     * The roles as the config writes them, before any CP change.
+     *
+     * @return array<string, array{label: string, permissions: list<string>}>
+     */
+    public function configured(): array
     {
         $roles = [];
 
@@ -26,22 +91,24 @@ class Roles
                 // Through __(): config labels are English and a German CP
                 // translates them from lang/de.json.
                 'label' => (string) __((string) ($role['label'] ?? $handle)),
-                'permissions' => array_values(array_map('strval', (array) ($role['permissions'] ?? []))),
-                'custom' => false,
+                'permissions' => $this->normalise((string) $handle, (array) ($role['permissions'] ?? [])),
             ];
         }
 
-        if ($team !== null && $team->exists) {
-            foreach ($team->roles()->get() as $role) {
-                $roles[$role->handle] = [
-                    'label' => $role->label,
-                    'permissions' => array_values(array_map('strval', (array) ($role->permissions ?? []))),
-                    'custom' => true,
-                ];
-            }
+        return $roles;
+    }
+
+    /**
+     * @param  array<mixed>  $permissions
+     * @return list<string>
+     */
+    protected function normalise(string $handle, array $permissions): array
+    {
+        if ($handle === $this->ownerRole()) {
+            return ['*'];
         }
 
-        return $roles;
+        return array_values(array_unique(array_map('strval', $permissions)));
     }
 
     public function exists(string $role, ?Team $team = null): bool

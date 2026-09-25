@@ -18,6 +18,9 @@ use Goldnead\Teams\Services\ImportService;
 use Goldnead\Teams\Services\InvitationService;
 use Goldnead\Teams\Services\JoinService;
 use Goldnead\Teams\Services\MembershipService;
+use Goldnead\Teams\Services\RoleService;
+use Goldnead\Teams\Support\GlobalRoleStore;
+use Goldnead\Teams\Support\Permissions;
 use Goldnead\Teams\Services\TeamService;
 use Goldnead\Teams\Support\CurrentTeam;
 use Goldnead\Teams\Support\JoinCodes;
@@ -87,11 +90,13 @@ class ServiceProvider extends AddonServiceProvider
             JoinService::class, ImportService::class, TeamsManager::class,
             TeamEntitlements::class, TeamBuyer::class, MailTemplates::class,
             AutomationsBridge::class, WebhookManagerBridge::class,
+            RoleService::class, Permissions::class,
         ] as $singleton) {
             $this->app->singleton($singleton);
         }
 
         $this->app->scoped(CurrentTeam::class);
+        $this->app->scoped(GlobalRoleStore::class);
     }
 
     /**
@@ -228,6 +233,9 @@ class ServiceProvider extends AddonServiceProvider
                 ->route('teams.index')
                 ->can('view teams')
                 ->children([
+                    $nav->item(__('teams::messages.nav_roles'))
+                        ->route('teams.roles.index')
+                        ->can('manage team roles'),
                     $nav->item(__('teams::messages.nav_wiring'))
                         ->route('teams.wiring')
                         ->can('view teams'),
@@ -247,6 +255,12 @@ class ServiceProvider extends AddonServiceProvider
                         Permission::make('manage teams')
                             ->label(__('teams::messages.permission_manage')),
                     ]);
+
+                // Its own permission, not a child of `manage teams`: whoever
+                // may change who holds which role does not thereby decide
+                // what a role may do.
+                Permission::register('manage team roles')
+                    ->label(__('teams::messages.permission_roles'));
 
                 Permission::register('manage teams settings')
                     ->label(__('teams::messages.permission_settings'));
