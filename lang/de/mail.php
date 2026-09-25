@@ -18,7 +18,7 @@ return [
 
     'invitation' => [
         'title' => 'Teams: Einladung',
-        'trigger' => 'Jemand wird in ein Team eingeladen (oder erneut eingeladen)',
+        'trigger' => 'Einladung in ein Team',
         'subject' => 'Einladung zu {{ team.name }}',
         'body' => '<p>Hallo,</p>'
             .'<p>{{ inviter.name }} lädt dich zu <strong>{{ team.name }}</strong> ein. Deine Rolle dort: {{ role }}.</p>'
@@ -29,7 +29,7 @@ return [
 
     'member_joined' => [
         'title' => 'Teams: Neues Mitglied',
-        'trigger' => 'Jemand tritt einem Team bei, an die Inhaber:innen',
+        'trigger' => 'Neues Mitglied, an Inhaber:innen',
         'subject' => '{{ member.name }} ist jetzt in {{ team.name }}',
         'body' => '<p>Hallo,</p>'
             .'<p><strong>{{ member.name }}</strong> ({{ member.email }}) ist {{ team.name }} beigetreten, mit der Rolle {{ role }}.</p>',
@@ -37,7 +37,7 @@ return [
 
     'member_removed' => [
         'title' => 'Teams: Aus dem Team entfernt',
-        'trigger' => 'Jemand wird von anderen aus einem Team entfernt',
+        'trigger' => 'Aus dem Team entfernt',
         'subject' => 'Du bist nicht mehr in {{ team.name }}',
         'body' => '<p>Hallo {{ member.name }},</p>'
             .'<p>du wurdest aus <strong>{{ team.name }}</strong> entfernt. Was du über das Team nutzen konntest, steht dir damit nicht mehr zur Verfügung.</p>'
@@ -46,7 +46,7 @@ return [
 
     'role_changed' => [
         'title' => 'Teams: Rolle geändert',
-        'trigger' => 'Die Rolle eines Mitglieds im Team ändert sich',
+        'trigger' => 'Rolle im Team geändert',
         'subject' => 'Deine Rolle in {{ team.name }}',
         'body' => '<p>Hallo {{ member.name }},</p>'
             .'<p>deine Rolle in <strong>{{ team.name }}</strong> ist jetzt {{ role.to }} (vorher {{ role.from }}).</p>',
