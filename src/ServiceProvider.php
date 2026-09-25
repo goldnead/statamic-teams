@@ -141,14 +141,14 @@ class ServiceProvider extends AddonServiceProvider
 
         $this
             ->bootMorphAlias()
-            ->bootMiddleware()
+            ->bootMiddlewareAliases()
             ->bootExceptionRendering()
             ->bootRateLimits()
             ->bootNav()
             ->bootPermissions()
             ->bootBridges()
             ->bootPersonalTeams()
-            ->bootPublishables();
+            ->bootTeamsPublishables();
     }
 
     /**
@@ -167,7 +167,11 @@ class ServiceProvider extends AddonServiceProvider
         return $this;
     }
 
-    protected function bootMiddleware(): self
+    /**
+     * Not `bootMiddleware()`: that is a step of Statamic's own boot chain
+     * (middleware groups), and a method of the same name would replace it.
+     */
+    protected function bootMiddlewareAliases(): self
     {
         /** @var Router $router */
         $router = $this->app['router'];
@@ -285,7 +289,13 @@ class ServiceProvider extends AddonServiceProvider
         return $this;
     }
 
-    protected function bootPublishables(): self
+    /**
+     * Not `bootPublishables()`: Statamic's chain calls that name for the
+     * addon's `$publishables`, and overriding it replaced core's step and ran
+     * this one twice. The CP bundle itself is published by core's
+     * `bootVite()` under the tag `statamic-teams`.
+     */
+    protected function bootTeamsPublishables(): self
     {
         $this->publishes([
             __DIR__.'/../config/teams.php' => config_path('teams.php'),
