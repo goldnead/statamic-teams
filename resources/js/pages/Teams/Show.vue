@@ -19,7 +19,12 @@ const props = defineProps([
 ]);
 
 const errors = ref({});
-const generalErrors = computed(() => Object.values(errors.value));
+// Errors a field shows itself stay out of the banner; everything else
+// (last owner, a refused role change) goes up top.
+const fieldKeys = ['name', 'email'];
+const generalErrors = computed(() => Object.entries(errors.value)
+    .filter(([key]) => ! fieldKeys.includes(key) && ! key.startsWith('billing'))
+    .map(([, message]) => message));
 
 // Details
 const name = ref(props.team.name);
@@ -168,11 +173,13 @@ function reload() {
             </Card>
         </Panel>
 
-        <Panel :heading="__('Members')" :subheading="`${members.length}`">
+        <Panel :heading="`${__('Members')} (${members.length})`">
             <Listing
                 :items="members"
                 :columns="memberColumns"
                 preferences-prefix="teams.members"
+                :allow-presets="false"
+                :allow-customizing-columns="false"
                 :allow-search="members.length > 10"
                 @refreshing="reload"
             >
@@ -199,6 +206,8 @@ function reload() {
                 :items="invitations"
                 :columns="invitationColumns"
                 preferences-prefix="teams.invitations"
+                :allow-presets="false"
+                :allow-customizing-columns="false"
                 :allow-search="false"
                 @refreshing="reload"
             >

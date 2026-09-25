@@ -55,7 +55,7 @@ function installTemplates() {
                             :text="integrations[sibling.key].installed ? __('Installed') : __('Not installed')"
                         />
                         <div>
-                            <a v-if="integrations[sibling.key].installed && integrations[sibling.key].url" :href="integrations[sibling.key].url" class="font-medium hover:underline">{{ sibling.label }}</a>
+                            <a v-if="integrations[sibling.key].installed && integrations[sibling.key].url" :href="integrations[sibling.key].url" class="font-medium text-ui-accent-text underline">{{ sibling.label }}</a>
                             <span v-else class="font-medium">{{ sibling.label }}</span>
                             <Description :text="sibling.text" />
                         </div>
@@ -65,6 +65,7 @@ function installTemplates() {
         </Panel>
 
         <Panel :heading="__('Events')" :subheading="__('Handle, mail, and who listens. Counts include enabled flows and webhooks only.')">
+            <Card>
             <Table>
                 <TableColumns>
                     <TableColumn>{{ __('Event') }}</TableColumn>
@@ -82,8 +83,8 @@ function installTemplates() {
                         <TableCell>
                             <template v-if="event.mail">
                                 <div class="flex flex-wrap items-center gap-2">
-                                    <Badge pill :color="event.mail.enabled ? 'green' : 'default'" :text="event.mail.enabled ? __('Sent') : __('Off')" />
-                                    <a v-if="event.mail.edit_url" :href="event.mail.edit_url" class="font-mono text-xs hover:underline">{{ event.mail.slug }}</a>
+                                    <Badge pill :color="event.mail.enabled ? 'green' : 'default'" :text="event.mail.enabled ? __('Mail is sent') : __('Off')" />
+                                    <a v-if="event.mail.edit_url" :href="event.mail.edit_url" class="font-mono text-xs text-ui-accent-text underline">{{ event.mail.slug }}</a>
                                     <span v-else class="font-mono text-xs text-gray-600 dark:text-gray-400">{{ event.mail.slug }}</span>
                                     <Badge v-if="!event.mail.customised" pill color="amber" :text="__('Default text')" />
                                 </div>
@@ -94,16 +95,17 @@ function installTemplates() {
                             <span v-else class="text-gray-400">–</span>
                         </TableCell>
                         <TableCell class="text-end tabular-nums">
-                            <a v-if="integrations.automations.installed && integrations.automations.url" :href="integrations.automations.url" class="hover:underline">{{ event.automations }}</a>
+                            <a v-if="integrations.automations.installed && integrations.automations.url" :href="integrations.automations.url" class="text-ui-accent-text underline">{{ event.automations }}</a>
                             <span v-else class="text-gray-400">–</span>
                         </TableCell>
                         <TableCell class="text-end tabular-nums">
-                            <a v-if="integrations.webhook_manager.installed && integrations.webhook_manager.url" :href="integrations.webhook_manager.url" class="hover:underline">{{ event.webhooks }}</a>
+                            <a v-if="integrations.webhook_manager.installed && integrations.webhook_manager.url" :href="integrations.webhook_manager.url" class="text-ui-accent-text underline">{{ event.webhooks }}</a>
                             <span v-else class="text-gray-400">–</span>
                         </TableCell>
                     </TableRow>
                 </TableRows>
             </Table>
+            </Card>
         </Panel>
     </div>
 </template>

@@ -23,7 +23,9 @@ class Roles
 
         foreach ((array) config('teams.roles', []) as $handle => $role) {
             $roles[(string) $handle] = [
-                'label' => (string) ($role['label'] ?? $handle),
+                // Through __(): config labels are English and a German CP
+                // translates them from lang/de.json.
+                'label' => (string) __((string) ($role['label'] ?? $handle)),
                 'permissions' => array_values(array_map('strval', (array) ($role['permissions'] ?? []))),
                 'custom' => false,
             ];
