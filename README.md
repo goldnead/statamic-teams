@@ -69,6 +69,11 @@ In Antlers, `{{ teams:switch_form }}`, `{{ teams:members }}`, `{{ teams:invite_f
 | **Invitation** | Addressed to an email, with a role and `meta` copied onto the membership. Expires (default 7 days), is bound to its address, works once. Inviting the same address again replaces the link. |
 | **Role** | Defined in `teams.roles`; a team can add its own in `team_roles`. `owner` holds every permission and cannot be removed from the last owner. |
 
+**Nobody hands out more than they hold.** Whoever assigns a role, invites into it or removes someone
+holding it must hold every permission of that role; a role with `*` and the owner role only by an
+owner. Changing one's own role, and demoting or removing an owner, is an owner's business. The
+last-owner check runs inside the write's transaction with the owner rows locked.
+
 Nobody is put into a team without consent: the Control Panel and the front end invite, they do not add.
 `Teams::addMember()` exists for code that has its own consent (an import, a checkout).
 
@@ -91,7 +96,8 @@ A refusal is a `Goldnead\Teams\Exceptions\TeamsException` with a stable `reason`
 | `invitation_wrong_email` | 403 | account email differs from the invited one |
 | `join_code_invalid` | 404 | |
 | `join_disabled` | 403 | team does not accept codes |
-| `unknown_role`, `last_owner`, `personal_team`, `team_mismatch`, `team_required` | 422 | |
+| `unknown_role`, `last_owner`, `already_owner`, `personal_team`, `team_mismatch`, `team_required` | 422 | |
+| `import_collision` | 409 | a fixed id belongs to another team |
 | `read_only` | 423 | |
 | anything a join guard returns, e.g. `team_full` | 422 | |
 
@@ -118,6 +124,7 @@ Teams::updateMemberMeta(Team $team, $user, array $meta, $actor = null): Membersh
 
 // Current team
 Teams::current($user = null): ?Team        // the middleware's team, else the user's current one
+Teams::currentOrFail($user = null): Team   // or TeamsException team_required (422)
 Teams::switch($user, Team $team): Membership
 
 // Invitations and codes
@@ -167,6 +174,23 @@ The team is read from the `X-Team-ID` header, `team_id` in query or body, and th
 to different teams: 422. A team the user is not in, or one that does not exist: 403. Afterwards
 `Teams::current()` returns the team.
 
+Without a named team, `mixed` mode falls back to the user's current team. With
+`teams.current.fallback_to_current = false` the request has no team, and `Teams::currentOrFail()`
+answers 422 (`team_required`).
+
+ChoirLive keeps its API names and behaviour with:
+
+```php
+// config/teams.php
+'current' => [
+    'header' => 'X-Tenant-ID',
+    'parameter' => 'tenant_id',
+    'route_parameters' => ['tenant', 'tenant_id'],
+    'fallback_to_current' => false,   // like currentTenantId(): no workspace named, 422
+],
+'meta_labels' => ['voice_part' => 'Voice part'],
+```
+
 ## Front end
 
 Antlers tags, all working on the current team unless `team="id or uuid"` is given:
@@ -192,7 +216,9 @@ Inside `{{ teams:members }}`, `remove_url` and `role_url` are set only when the 
 use them (post `role` to `role_url`).
 
 The forms post to `/!/statamic-teams/…` (route names `statamic.teams.forms.*`). A request that
-wants JSON gets JSON with `reason` on refusal. The link in the invitation mail opens
+wants JSON gets JSON with `reason` on refusal. `redirect="…"` is followed only for a path on this
+site. Joining by code is limited to 10 attempts per hour per account and 30 per address
+(`teams.routes.join_limits`). The link in the invitation mail opens
 `/teams/invitations/{token}` (view `teams::invitation`, publish with `--tag=teams-views`): a guest is
 sent to `teams.invitations.login_url` first; accepting is a POST from that page, so a mail scanner
 following the link accepts nothing.
@@ -299,7 +325,16 @@ transaction). Idempotent by `uuid`, no events, no mails.
 ```
 
 A plain `token` is hashed on the way in, so links already in someone's inbox keep working. An unknown
-role stops the import with nothing written. On PostgreSQL, reset the `teams_id_seq` sequence after
+role stops the import with nothing written.
+
+- **Only the same team is updated.** A fixed `id` held by a different team (different uuid, or none
+  given) stops the import (`import_collision`). `--dry-run` checks every team and lists every
+  problem, then writes nothing.
+- **Invitation `status`** is taken over: `accepted` sets `accepted_at` (from `accepted_at`,
+  `updated_at` or `created_at`), `declined`/`revoked` set `revoked_at`. An accepted invitation never
+  comes back as open. An unknown status is imported as withdrawn and reported.
+- **`join_method`** other than `invitation_only` and `join_code` (ChoirLive's `join_request`) is
+  imported as `invitation_only` with a warning in the report; the join code is kept. On PostgreSQL, reset the `teams_id_seq` sequence after
 importing fixed ids.
 
 ## Settings

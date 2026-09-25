@@ -14,7 +14,7 @@ if (config('teams.routes.enabled', true)) {
         Route::post('create', [TeamFormController::class, 'create'])->name('create');
         Route::post('switch', [TeamFormController::class, 'switch'])->name('switch');
         Route::post('join', [TeamFormController::class, 'join'])
-            ->middleware('throttle:'.config('teams.routes.join_throttle', '10,1'))
+            ->middleware('throttle:teams-join')
             ->name('join');
         Route::post('invitations/{token}/accept', [TeamFormController::class, 'accept'])
             ->where('token', '[A-Za-z0-9]+')

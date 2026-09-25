@@ -16,4 +16,8 @@
 - Ten events, bridged to automations, webhook-manager and activity.
 - Control Panel: teams, team page with members, invitations and billing address, wiring page.
 - Antlers tags and front-end forms: switcher, member list, invite, join, accept, leave.
-- `teams:import` and `Teams::import()` for taking over teams with fixed ids and uuids.
+- `teams:import` and `Teams::import()` for taking over teams with fixed ids and uuids; a fixed id held by another team stops the import, `--dry-run` lists every problem, invitation `status` and unsupported join methods are taken over or reported.
+- Nobody hands out, invites into or removes a role holding more than their own; owners only by owners; last-owner check under a row lock.
+- `teams.current.fallback_to_current` and `Teams::currentOrFail()`.
+- Join by code limited per account and per address (`teams.routes.join_limits`); form redirects only to paths on the site.
+- `teams.meta_labels` for the membership fields in the CP.

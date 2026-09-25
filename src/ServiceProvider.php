@@ -24,9 +24,12 @@ use Goldnead\Teams\Support\JoinCodes;
 use Goldnead\Teams\Support\JoinGuards;
 use Goldnead\Teams\Support\Roles;
 use Goldnead\Teams\Support\Settings;
+use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Database\Eloquent\Relations\Relation;
+use Illuminate\Http\Request;
 use Illuminate\Routing\Router;
+use Illuminate\Support\Facades\RateLimiter;
 use Statamic\Events\UserRegistered;
 use Statamic\Facades\CP\Nav;
 use Statamic\Facades\Permission;
@@ -123,6 +126,7 @@ class ServiceProvider extends AddonServiceProvider
             ->bootMorphAlias()
             ->bootMiddleware()
             ->bootExceptionRendering()
+            ->bootRateLimits()
             ->bootNav()
             ->bootPermissions()
             ->bootBridges()
@@ -171,6 +175,25 @@ class ServiceProvider extends AddonServiceProvider
                     : abort($e->status(), $e->getMessage());
             });
         }
+
+        return $this;
+    }
+
+    /**
+     * `throttle:teams-join`: per account and per address, read when the
+     * limiter runs, so the numbers can be changed without a deploy.
+     */
+    protected function bootRateLimits(): self
+    {
+        RateLimiter::for('teams-join', function (Request $request) {
+            $perUser = max(1, (int) config('teams.routes.join_limits.per_user', 10));
+            $perIp = max(1, (int) config('teams.routes.join_limits.per_ip', 30));
+
+            return [
+                Limit::perHour($perUser)->by('teams-join:user:'.($request->user()?->getAuthIdentifier() ?? 'guest:'.$request->ip())),
+                Limit::perHour($perIp)->by('teams-join:ip:'.$request->ip()),
+            ];
+        });
 
         return $this;
     }

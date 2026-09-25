@@ -149,6 +149,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Membership meta labels
+    |--------------------------------------------------------------------------
+    |
+    | How the CP names the fields in a membership's `meta`, e.g.
+    | ['voice_part' => 'Voice part']. Labels go through the translator. A key
+    | without a label is shown as a headline of the key.
+    |
+    */
+
+    'meta_labels' => [],
+
+    /*
+    |--------------------------------------------------------------------------
     | Mails
     |--------------------------------------------------------------------------
     |
@@ -175,7 +188,12 @@ return [
         'enabled' => true,
         'prefix' => 'teams',
         'middleware' => ['web'],
-        'join_throttle' => '10,1',
+        // Attempts per hour at joining by code, as in ChoirLive: a code is
+        // short enough to be guessed if nobody brakes.
+        'join_limits' => [
+            'per_user' => 10,
+            'per_ip' => 30,
+        ],
     ],
 
     /*

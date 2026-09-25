@@ -14,6 +14,7 @@ use Goldnead\Teams\Support\Wiring;
 use Goldnead\Teams\TeamsManager;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Statamic\CP\Column;
@@ -145,7 +146,6 @@ class TeamController extends Controller
                 'read_only' => $record->isReadOnly(),
                 'is_personal' => $record->isPersonal(),
                 'billing' => (object) ($record->billing ?? []),
-                'meta_keys' => collect($members)->flatMap(fn ($m) => array_keys($m['meta']))->unique()->values()->all(),
                 'created_at' => $record->created_at?->toDateString(),
             ],
             'members' => $members,
@@ -163,6 +163,11 @@ class TeamController extends Controller
                 Column::make('expires_on')->label(__('teams::cp.expires'))->sortable(true),
             ],
             'roles' => collect($this->roles->all($record))->map(fn ($role, $handle) => ['value' => $handle, 'label' => __($role['label'])])->values()->all(),
+            'metaLabels' => collect($members)
+                ->flatMap(fn ($m) => array_keys($m['meta']))
+                ->unique()
+                ->mapWithKeys(fn ($key) => [$key => __((string) (config("teams.meta_labels.{$key}") ?? Str::headline((string) $key)))])
+                ->all(),
             'entitlementSubject' => Team::MORPH_ALIAS.':'.$record->id,
             'urls' => [
                 'index' => cp_route('teams.index'),

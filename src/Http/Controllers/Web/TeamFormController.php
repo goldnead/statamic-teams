@@ -198,7 +198,9 @@ class TeamFormController extends Controller
     {
         $target = (string) $request->input('_redirect', '');
 
-        if ($target !== '' && str_starts_with($target, '/') && ! str_starts_with($target, '//')) {
+        // `/\evil.example` is `//evil.example` to a browser: a backslash
+        // after the first slash leaves the site as surely as a second slash.
+        if (preg_match('#^/(?![/\\\\])#', $target) === 1) {
             return redirect()->to($target);
         }
 

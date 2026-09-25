@@ -13,6 +13,7 @@ const props = defineProps([
     'invitations',        // [{ id, email, role, role_label, status, expires_on, resend_url, delete_url }]
     'invitationColumns',
     'roles',              // [{ value, label }]
+    'metaLabels',         // { voice_part: 'Stimmgruppe', … } from teams.meta_labels
     'entitlementSubject', // 'team:<id>'
     'urls',
     'canManage',
@@ -185,7 +186,7 @@ function reload() {
             >
                 <template #cell-name="{ row }">
                     <span class="font-medium">{{ row.name || row.id }}</span>
-                    <Badge v-for="(value, key) in row.meta" :key="key" pill :text="`${key}: ${value}`" class="ms-2" />
+                    <Badge v-for="(value, key) in row.meta" :key="key" pill :text="`${metaLabels[key] ?? key}: ${value}`" class="ms-2" />
                 </template>
                 <template #cell-role_label="{ row }">
                     <Badge pill :color="row.role === 'owner' ? 'green' : 'default'" :text="row.role_label" />
