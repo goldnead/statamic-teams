@@ -16,4 +16,12 @@ return [
     'activity' => 'Aktivität',
     'automations_team_type' => 'Teamtyp',
     'automations_team_type_help' => 'Nur für Teams dieses Typs auslösen. Leer: für alle, auch für persönliche Teams.',
+    'create_role' => 'Rolle anlegen',
+    'role_handle_instructions' => 'So nennen Code, Import und App-API die Rolle. Kleinbuchstaben, Ziffern, _ und -.',
+    'role_handle_fixed' => 'Mitglieder und Einladungen verweisen über das Handle auf die Rolle, deshalb bleibt es.',
+    'permissions' => 'Rechte',
+    'permissions_instructions' => 'Was ein Mitglied mit dieser Rolle in seinem Team darf. Wer die Rolle in einem Team vergibt, muss jedes dieser Rechte selbst haben.',
+    'owner_permissions' => 'Die Inhaber-Rolle hat immer alle Rechte, auch später hinzugekommene. Nur ihr Name lässt sich ändern.',
+    'role_scope' => 'Gilt für',
+    'all_permissions' => 'Alle Rechte',
 ];

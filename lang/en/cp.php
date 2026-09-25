@@ -16,4 +16,12 @@ return [
     'activity' => 'Activity',
     'automations_team_type' => 'Team type',
     'automations_team_type_help' => 'Only fire for teams of this type. Empty: for all, personal teams included.',
+    'create_role' => 'Create role',
+    'role_handle_instructions' => 'How code, imports and app-api name the role. Lowercase letters, digits, _ and -.',
+    'role_handle_fixed' => 'Members and invitations refer to the role by its handle, so it stays.',
+    'permissions' => 'Permissions',
+    'permissions_instructions' => 'What a member holding this role may do in their team. Whoever assigns the role in a team must hold every one of these.',
+    'owner_permissions' => 'The owner role always holds every permission, also those added later. Only its name can be changed.',
+    'role_scope' => 'Applies to',
+    'all_permissions' => 'All permissions',
 ];

@@ -8,6 +8,8 @@ use Goldnead\Teams\Integrations\Payments\TeamBuyer;
 use Goldnead\Teams\Models\Invitation;
 use Goldnead\Teams\Models\Membership;
 use Goldnead\Teams\Models\Team;
+use Goldnead\Teams\Services\RoleService;
+use Goldnead\Teams\Support\Permissions;
 use Goldnead\Teams\Support\Roles;
 use Goldnead\Teams\Support\Setup;
 use Goldnead\Teams\Support\Users;
@@ -176,6 +178,17 @@ class TeamController extends Controller
                 ->unique()
                 ->mapWithKeys(fn ($key) => [$key => __((string) (config("teams.meta_labels.{$key}") ?? Str::ucfirst(str_replace('_', ' ', (string) $key))))])
                 ->all(),
+            'teamRoles' => $this->teamRoles($record),
+            'roleColumns' => [
+                Column::make('label')->label(__('Name'))->sortable(true),
+                Column::make('handle')->label(__('Handle'))->sortable(true),
+                Column::make('scope')->label(__('teams::cp.role_scope'))->sortable(true),
+                Column::make('permission_count')->label(__('teams::cp.permissions'))->numeric(true)->sortable(true),
+                Column::make('members')->label(__('teams::cp.members'))->numeric(true)->sortable(true),
+            ],
+            'permissions' => collect(app(Permissions::class)->all())->map(fn ($label, $handle) => ['value' => $handle, 'label' => $label])->values()->all(),
+            'canManageRoles' => $this->userCan($request, RoleController::PERMISSION),
+            'rolesPageUrl' => $this->userCan($request, RoleController::PERMISSION) ? cp_route('teams.roles.index') : null,
             'entitlementSubject' => Team::MORPH_ALIAS.':'.$record->id,
             'urls' => [
                 'index' => cp_route('teams.index'),
@@ -183,6 +196,7 @@ class TeamController extends Controller
                 'destroy' => cp_route('teams.destroy', $record->id),
                 'joinCode' => cp_route('teams.join-code', $record->id),
                 'invite' => cp_route('teams.invitations.store', $record->id),
+                'roles' => cp_route('teams.team-roles.store', $record->id),
                 'wiring' => cp_route('teams.wiring'),
             ],
             'canManage' => $canManage,
@@ -301,6 +315,47 @@ class TeamController extends Controller
         $result = $templates->install();
 
         return back()->with('success', __('teams::messages.templates_installed', ['count' => count($result['created'])]));
+    }
+
+    /**
+     * Every role that applies in this team, marked global or team-own, with
+     * who holds it. `falls_back` says a team role replaces a global one:
+     * deleting it moves nobody, its members get the global role back.
+     *
+     * @return list<array<string, mixed>>
+     */
+    protected function teamRoles(Team $team): array
+    {
+        $service = app(RoleService::class);
+        $counts = $service->memberCounts($team);
+        $permissions = app(Permissions::class)->all();
+        $rows = [];
+
+        foreach ($this->roles->all($team) as $handle => $role) {
+            $all = in_array('*', $role['permissions'], true);
+            $teamOwn = $role['scope'] === 'team';
+
+            $rows[] = [
+                'id' => $handle,
+                'handle' => $handle,
+                'label' => $role['label'],
+                'scope' => $role['scope'],
+                'overrides_global' => $role['overrides_global'],
+                'permissions' => $role['permissions'],
+                'permission_labels' => $all
+                    ? [__('teams::cp.all_permissions')]
+                    : array_values(array_map(fn ($p) => $permissions[$p] ?? $p, $role['permissions'])),
+                'permission_count' => $all ? count($permissions) : count($role['permissions']),
+                'all' => $all,
+                'owner' => $handle === $this->roles->ownerRole(),
+                'members' => $counts[$handle] ?? 0,
+                'usage' => $teamOwn && ! $role['overrides_global'] ? $service->usage($handle, $team) : ['members' => 0, 'invitations' => 0],
+                'update_url' => $teamOwn ? cp_route('teams.team-roles.update', [$team->id, $handle]) : null,
+                'delete_url' => $teamOwn ? cp_route('teams.team-roles.destroy', [$team->id, $handle]) : null,
+            ];
+        }
+
+        return $rows;
     }
 
     /**

@@ -3,6 +3,7 @@
 namespace Goldnead\Teams\Events;
 
 use Goldnead\Teams\Models\Team;
+use Goldnead\Teams\Services\RoleService;
 
 /**
  * A role was created, changed or deleted: a global one (`team` null) or one
@@ -11,7 +12,7 @@ use Goldnead\Teams\Models\Team;
 abstract class RoleEvent extends TeamEvent
 {
     /**
-     * @param  array<string, mixed>  $role  as {@see \Goldnead\Teams\Services\RoleService::find()} returns it
+     * @param  array<string, mixed>  $role  as {@see RoleService::find()} returns it
      */
     public function __construct(
         public array $role,

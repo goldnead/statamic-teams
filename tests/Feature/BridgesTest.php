@@ -106,6 +106,34 @@ class BridgesTest extends TestCase
     }
 
     #[Test]
+    public function role_events_reach_automations_webhooks_and_activity(): void
+    {
+        $detected = [];
+        Event::listen(TriggerDetected::class, function (TriggerDetected $e) use (&$detected) {
+            $detected[] = $e->event;
+        });
+
+        $team = Teams::create('Chor');
+        Teams::createRole('stimmfuehrung', 'Stimmführung', ['invite members']);
+        Teams::createRole('kasse', 'Kasse', ['view billing'], $team);
+        Teams::deleteRole('kasse', $team);
+
+        $flows = collect(Automations::getFacadeRoot()->dispatched);
+        $this->assertSame('global', $flows->firstWhere('handle', 'teams.role.created')['context']['role']['scope']);
+        $this->assertNotNull($flows->firstWhere('handle', 'teams.role.deleted'));
+
+        $hook = collect($detected)->firstWhere('triggerHandle', 'teams.role.created');
+        $this->assertSame('stimmfuehrung', $hook->payload['role']['handle']);
+        $this->assertNull($hook->sourceReference);
+
+        $global = collect(Activity::$recorded)->firstWhere('type', 'teams.role.created');
+        $this->assertArrayNotHasKey('subject_type', $global['attributes'], 'A global role belongs to no team.');
+
+        $own = collect(Activity::$recorded)->where('type', 'teams.role.created')->values()[1];
+        $this->assertSame((string) $team->id, $own['attributes']['subject_id']);
+    }
+
+    #[Test]
     public function the_activity_bridge_can_be_switched_off(): void
     {
         config(['teams.integrations.activity' => false]);

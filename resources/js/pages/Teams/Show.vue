@@ -4,6 +4,7 @@ import { Head, router } from '@statamic/cms/inertia';
 import {
     Header, Panel, Card, Alert, Badge, Button, Dropdown, DropdownMenu, DropdownItem,
     Field, Input, Select, Switch, Listing, Modal, ConfirmationModal, CommandPaletteItem, Description,
+    Stack, Heading, Checkbox, CheckboxGroup,
 } from '@statamic/cms/ui';
 
 const props = defineProps([
@@ -17,14 +18,68 @@ const props = defineProps([
     'metaValueLabels',    // { voice_part: { bass: 'Bass', … } } from teams.meta_value_labels
     'vatIdChecked',       // bool: statamic-invoices checks VAT IDs at the checkout
     'entitlementSubject', // 'team:<id>'
+    'teamRoles',          // [{ id, handle, label, scope, overrides_global, permissions, permission_labels, permission_count, all, owner, members, usage, update_url, delete_url }]
+    'roleColumns',
+    'permissions',        // [{ value, label }]
+    'canManageRoles',
+    'rolesPageUrl',
     'urls',
     'canManage',
 ]);
 
+// Roles of this team
+const ownRoles = computed(() => props.teamRoles.filter((r) => r.scope === 'team'));
+const roleEditor = ref(null);      // { mode: 'create' | 'adjust' | 'edit', handle, label, permissions, url }
+const roleDelete = ref(null);
+const roleReassign = ref(null);
+const roleHeld = (row) => row ? row.usage.members + row.usage.invitations : 0;
+const roleTargets = computed(() => props.teamRoles
+    .filter((r) => ! r.owner && r.handle !== roleDelete.value?.handle)
+    .map((r) => ({ value: r.handle, label: r.label })));
+
+function openRoleCreate() {
+    errors.value = {};
+    roleEditor.value = { mode: 'create', handle: '', label: '', permissions: [], url: props.urls.roles };
+}
+
+function openRoleEdit(row) {
+    errors.value = {};
+    roleEditor.value = row.scope === 'team'
+        ? { mode: 'edit', handle: row.handle, label: row.label, permissions: [...row.permissions], url: row.update_url }
+        // A global role adjusted for this team: a team role of the same handle.
+        : { mode: 'adjust', handle: row.handle, label: row.label, permissions: [...row.permissions], url: props.urls.roles };
+}
+
+function saveRole() {
+    const role = roleEditor.value;
+    const payload = { label: role.label, permissions: role.permissions };
+    const done = { ...options, onSuccess: () => { errors.value = {}; roleEditor.value = null; } };
+
+    if (role.mode === 'edit') {
+        router.patch(role.url, payload, done);
+    } else {
+        router.post(role.url, { ...payload, handle: role.handle }, done);
+    }
+}
+
+function openRoleDelete(row) {
+    errors.value = {};
+    roleReassign.value = null;
+    roleDelete.value = row;
+}
+
+function deleteRole() {
+    router.delete(roleDelete.value.delete_url, {
+        ...options,
+        data: roleReassign.value ? { reassign_to: roleReassign.value } : {},
+        onSuccess: () => { errors.value = {}; roleDelete.value = null; },
+    });
+}
+
 const errors = ref({});
 // Errors a field shows itself stay out of the banner; everything else
 // (last owner, a refused role change) goes up top.
-const fieldKeys = ['name', 'email'];
+const fieldKeys = ['name', 'email', 'handle', 'label', 'permissions'];
 const generalErrors = computed(() => Object.entries(errors.value)
     .filter(([key]) => ! fieldKeys.includes(key) && ! key.startsWith('billing'))
     .map(([, message]) => message));
@@ -200,6 +255,49 @@ function reload() {
             </Listing>
         </Panel>
 
+        <Panel :heading="__('Roles')" :subheading="ownRoles.length === 0 ? __('This team uses the global roles only. Add a role of its own, or adjust a global role for this team.') : null">
+            <template v-if="canManageRoles" #header-actions>
+                <Button v-if="rolesPageUrl" :href="rolesPageUrl" :text="__('Global roles')" size="sm" variant="ghost" />
+                <Button :text="__('Create role')" size="sm" @click="openRoleCreate" />
+            </template>
+            <Listing
+                :items="teamRoles"
+                :columns="roleColumns"
+                preferences-prefix="teams.team-roles"
+                :allow-presets="false"
+                :allow-customizing-columns="false"
+                :allow-search="false"
+                @refreshing="reload"
+            >
+                <template #cell-label="{ row }">
+                    <span class="font-medium">{{ row.label }}</span>
+                </template>
+                <template #cell-scope="{ row }">
+                    <Badge v-if="row.scope === 'team'" pill color="blue" :text="row.overrides_global ? __('This team, replaces global') : __('This team')" />
+                    <Badge v-else pill :text="__('Global')" />
+                </template>
+                <template #cell-permission_count="{ row }">
+                    <span class="text-sm text-gray-600 dark:text-gray-400" :title="row.permission_labels.join(', ')">
+                        {{ row.all ? __('All permissions') : (row.permission_labels.join(', ') || '–') }}
+                    </span>
+                </template>
+                <template #cell-members="{ row }">
+                    <span class="tabular-nums">{{ row.members }}</span>
+                </template>
+                <template v-if="canManageRoles" #prepended-row-actions="{ row }">
+                    <DropdownItem v-if="row.scope === 'team'" :text="__('Edit')" icon="edit" @click="openRoleEdit(row)" />
+                    <DropdownItem v-else-if="! row.owner" :text="__('Adjust for this team')" icon="edit" @click="openRoleEdit(row)" />
+                    <DropdownItem
+                        v-if="row.delete_url"
+                        :text="row.overrides_global ? __('Back to the global role') : __('Delete')"
+                        icon="trash"
+                        variant="destructive"
+                        @click="openRoleDelete(row)"
+                    />
+                </template>
+            </Listing>
+        </Panel>
+
         <Panel :heading="__('Invitations')">
             <Card v-if="invitations.length === 0">
                 <Description :text="team.is_personal ? __('Nobody can be invited into a personal team.') : __('No invitations yet. Whoever is invited gets a mail with a link; they join once they accept it.')" />
@@ -283,6 +381,75 @@ function reload() {
                 </div>
             </template>
         </Modal>
+
+        <Stack :open="roleEditor !== null" size="narrow" @update:open="(v) => { if (!v) roleEditor = null; }">
+            <div v-if="roleEditor" class="flex h-full flex-col bg-content-bg">
+                <div class="border-b border-content-border px-6 py-4">
+                    <Heading
+                        :text="roleEditor.mode === 'create' ? __('Create role') : (roleEditor.mode === 'adjust' ? __('Adjust :role for this team', { role: roleEditor.label }) : roleEditor.label)"
+                        size="lg"
+                    />
+                </div>
+
+                <div class="flex-1 space-y-5 overflow-y-auto px-6 py-5">
+                    <Description v-if="roleEditor.mode === 'adjust'" :text="__('The team gets its own version of this role. Members holding it here follow the new permissions; other teams keep the global role.')" />
+                    <Field :label="__('Name')" :error="errors.label" required>
+                        <Input v-model="roleEditor.label" />
+                    </Field>
+                    <Field
+                        :label="__('Handle')"
+                        :error="errors.handle"
+                        :instructions="roleEditor.mode === 'create' ? __('Lowercase letters, digits, _ and -.') : __('Members and invitations refer to the role by its handle, so it stays.')"
+                        required
+                    >
+                        <Input v-model="roleEditor.handle" :read-only="roleEditor.mode !== 'create'" />
+                    </Field>
+                    <Field
+                        :label="__('Role permissions')"
+                        :error="errors.permissions"
+                        :instructions="__('What a member holding this role may do in this team.')"
+                    >
+                        <CheckboxGroup v-model="roleEditor.permissions">
+                            <Checkbox v-for="permission in permissions" :key="permission.value" :value="permission.value" :label="permission.label" />
+                        </CheckboxGroup>
+                    </Field>
+                </div>
+
+                <div class="border-t border-content-border px-6 py-4">
+                    <div class="flex justify-end gap-2">
+                        <Button :text="__('Cancel')" variant="ghost" @click="roleEditor = null" />
+                        <Button variant="primary" :text="__('Save')" :disabled="!roleEditor.label || !roleEditor.handle" @click="saveRole" />
+                    </div>
+                </div>
+            </div>
+        </Stack>
+
+        <ConfirmationModal
+            :open="roleDelete !== null && roleHeld(roleDelete) > 0"
+            :title="__('Move members first')"
+            danger
+            :disabled="!roleReassign"
+            :button-text="__('Move and delete')"
+            @cancel="roleDelete = null"
+            @confirm="deleteRole"
+        >
+            <div v-if="roleDelete" class="space-y-5">
+                <Description :text="__(':members members and :invitations open invitations hold the role :role. Choose the role they get instead, then the role is deleted.', { members: roleDelete.usage.members, invitations: roleDelete.usage.invitations, role: roleDelete.label })" />
+                <Field :label="__('Move to')" :error="errors.role">
+                    <Select v-model="roleReassign" :options="roleTargets" :placeholder="__('Choose a role')" />
+                </Field>
+            </div>
+        </ConfirmationModal>
+
+        <ConfirmationModal
+            :open="roleDelete !== null && roleHeld(roleDelete) === 0"
+            :title="roleDelete?.overrides_global ? __('Back to the global role') : __('Delete role')"
+            :body-text="roleDelete?.overrides_global ? __('The team version is deleted. Members holding this role get the global role again.') : __('Nobody holds this role. Delete it?')"
+            danger
+            :button-text="__('Delete')"
+            @cancel="roleDelete = null"
+            @confirm="deleteRole"
+        />
 
         <ConfirmationModal
             :open="removeTarget !== null"
