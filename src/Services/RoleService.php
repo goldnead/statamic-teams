@@ -11,9 +11,11 @@ use Goldnead\Teams\Models\GlobalRole;
 use Goldnead\Teams\Models\Invitation;
 use Goldnead\Teams\Models\Membership;
 use Goldnead\Teams\Models\Team;
+use Goldnead\Teams\Models\TeamRole;
 use Goldnead\Teams\Support\GlobalRoleStore;
 use Goldnead\Teams\Support\Permissions;
 use Goldnead\Teams\Support\Roles;
+use Goldnead\Teams\Support\TeamRoleStore;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 
@@ -65,6 +67,8 @@ class RoleService
             if (array_key_exists($handle, $this->roles->global())) {
                 throw TeamsException::because(TeamsException::ROLE_EXISTS);
             }
+
+            $this->assertNoTeamUsesHandle($handle);
 
             // A deleted config role comes back through its tombstone row.
             GlobalRole::query()->updateOrCreate(['handle' => $handle], ['label' => $label, 'permissions' => $permissions, 'removed' => false]);
@@ -177,36 +181,61 @@ class RoleService
         }
 
         // A team's version of a global role: its members fall back to the
-        // global one and keep their role. Nobody needs to move.
-        $survives = $team !== null && array_key_exists($handle, $this->roles->global());
-        $usage = $survives ? ['members' => 0, 'invitations' => 0] : $this->usage($handle, $team);
-        $held = $usage['members'] + $usage['invitations'] > 0;
+        // global one and keep their role. Nobody needs to move, but they get
+        // the global permissions back, and that is granting them: a role
+        // editor may only do it when the global role holds nothing more
+        // than they do. Owner and system may always.
+        $global = $this->roles->global();
+        $survives = $team !== null && array_key_exists($handle, $global);
 
-        if ($held && $reassignTo === null) {
-            throw TeamsException::because(TeamsException::ROLE_IN_USE, $usage);
+        if ($survives) {
+            $this->authorizeGrant($actor, $team, $global[$handle]['permissions']);
         }
 
-        if ($held) {
-            $this->checkReassignTarget($handle, (string) $reassignTo, $team, $actor);
-        }
+        $held = false;
 
-        $moved = DB::transaction(function () use ($handle, $team, $held, $reassignTo) {
-            $moved = $held ? $this->reassign($handle, (string) $reassignTo, $team) : [];
+        try {
+            // Counted, moved and deleted in one transaction, and counted
+            // again after the delete: whoever got the role in between rolls
+            // the deletion back instead of holding a role that is gone.
+            $moved = DB::transaction(function () use ($handle, $team, $reassignTo, $actor, $survives, &$held) {
+                $usage = $survives ? ['members' => 0, 'invitations' => 0] : $this->usage($handle, $team, lock: true);
+                $held = $usage['members'] + $usage['invitations'] > 0;
 
-            if ($team === null) {
-                if (array_key_exists($handle, $this->roles->configured())) {
-                    GlobalRole::query()->updateOrCreate(['handle' => $handle], ['label' => $this->roles->configured()[$handle]['label'], 'permissions' => null, 'removed' => true]);
-                } else {
-                    GlobalRole::query()->where('handle', $handle)->delete();
+                if ($held && $reassignTo === null) {
+                    throw TeamsException::because(TeamsException::ROLE_IN_USE, $usage);
                 }
-            } else {
-                $team->roles()->where('handle', $handle)->delete();
-            }
 
-            return $moved;
-        });
+                if ($held) {
+                    $this->checkReassignTarget($handle, (string) $reassignTo, $team, $actor);
+                }
 
-        $this->flush();
+                $moved = $held ? $this->reassign($handle, (string) $reassignTo, $team) : [];
+
+                if ($team === null) {
+                    if (array_key_exists($handle, $this->roles->configured())) {
+                        GlobalRole::query()->updateOrCreate(['handle' => $handle], ['label' => $this->roles->configured()[$handle]['label'], 'permissions' => null, 'removed' => true]);
+                    } else {
+                        GlobalRole::query()->where('handle', $handle)->first()?->delete();
+                    }
+                } else {
+                    $team->roles()->where('handle', $handle)->first()?->delete();
+                }
+
+                if (! $survives) {
+                    $after = $this->usage($handle, $team);
+
+                    if ($after['members'] + $after['invitations'] > 0) {
+                        throw TeamsException::because(TeamsException::ROLE_IN_USE, $after);
+                    }
+                }
+
+                return $moved;
+            });
+        } finally {
+            // Also after a rollback: the caches may hold what was undone.
+            $this->flush();
+        }
 
         $actorKey = $this->authorizer->actorKey($actor);
 
@@ -237,6 +266,11 @@ class RoleService
             return $this->find($handle);
         }
 
+        if ($row->removed) {
+            // Bringing a deleted role back is creating it again.
+            $this->assertNoTeamUsesHandle($handle);
+        }
+
         $before = $row->removed ? null : $this->find($handle);
         $row->delete();
         $this->flush();
@@ -265,12 +299,43 @@ class RoleService
      *
      * @return array{members: int, invitations: int}
      */
-    public function usage(string $handle, ?Team $team = null): array
+    public function usage(string $handle, ?Team $team = null, bool $lock = false): array
     {
-        return [
-            'members' => $this->holders(Membership::query(), $handle, $team)->count(),
-            'invitations' => $this->holders(Invitation::query()->pending(), $handle, $team)->count(),
-        ];
+        $members = $this->holders(Membership::query(), $handle, $team);
+        $invitations = $this->holders(Invitation::query()->pending(), $handle, $team);
+
+        if ($lock) {
+            // Holds the rows that exist; a new holder is caught by the count
+            // after the delete. (On SQLite a no-op, the database is locked
+            // for the write anyway.)
+            return [
+                // Fetched, not counted in SQL: a lock needs the rows.
+                'members' => count($members->lockForUpdate()->pluck('team_members.id')->all()),
+                'invitations' => count($invitations->lockForUpdate()->pluck('team_invitations.id')->all()),
+            ];
+        }
+
+        return ['members' => $members->count(), 'invitations' => $invitations->count()];
+    }
+
+    /**
+     * No team may already use `$handle` for a role of its own.
+     */
+    protected function assertNoTeamUsesHandle(string $handle): void
+    {
+        $teams = Team::query()
+            ->whereIn('id', TeamRole::query()->where('handle', $handle)->select('team_id'))
+            ->orderBy('id')
+            ->get(['id', 'name'])
+            ->map(fn (Team $t) => ['id' => (int) $t->id, 'name' => (string) $t->name])
+            ->all();
+
+        if ($teams !== []) {
+            throw TeamsException::because(TeamsException::ROLE_HANDLE_IN_TEAMS, [
+                'teams' => $teams,
+                'names' => implode(', ', array_column($teams, 'name')),
+            ]);
+        }
     }
 
     /**
@@ -443,5 +508,6 @@ class RoleService
     protected function flush(): void
     {
         app(GlobalRoleStore::class)->flush();
+        app(TeamRoleStore::class)->flush();
     }
 }

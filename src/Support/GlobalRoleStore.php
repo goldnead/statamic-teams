@@ -3,8 +3,7 @@
 namespace Goldnead\Teams\Support;
 
 use Goldnead\Teams\Models\GlobalRole;
-use Illuminate\Support\Facades\Schema;
-use Throwable;
+use Illuminate\Database\QueryException;
 
 /**
  * The stored global roles, read once per request or job.
@@ -26,16 +25,28 @@ class GlobalRoleStore
         }
 
         try {
-            if (! Schema::hasTable('team_global_roles')) {
-                return $this->rows = [];
+            return $this->rows = GlobalRole::query()->orderBy('id')->get()->keyBy('handle')->all();
+        } catch (QueryException $e) {
+            // Only a missing table (migration not run yet) means "config
+            // only". Anything else must not be read as "no changes": a role
+            // deleted or narrowed in the CP would get its config permissions
+            // back for as long as the database misbehaves.
+            if (! self::isMissingTable($e)) {
+                throw $e;
             }
 
-            return $this->rows = GlobalRole::query()->orderBy('id')->get()->keyBy('handle')->all();
-        } catch (Throwable $e) {
-            report($e);
-
-            return [];
+            return $this->rows = [];
         }
+    }
+
+    public static function isMissingTable(QueryException $e): bool
+    {
+        $state = (string) ($e->errorInfo[0] ?? $e->getCode());
+        $message = $e->getMessage();
+
+        return $state === '42S02'                              // MySQL, SQL Server
+            || $state === '42P01'                              // PostgreSQL
+            || str_contains($message, 'no such table');       // SQLite (HY000)
     }
 
     public function flush(): void

@@ -60,6 +60,7 @@ return [
         'role_in_use' => 'Diese Rolle ist noch vergeben (Mitglieder: :members, offene Einladungen: :invitations). Stelle sie erst auf eine andere Rolle um.',
         'unknown_permission' => 'Diese Rechte gibt es nicht: :permissions',
         'wildcard_not_allowed' => 'Alle Rechte (*) hat nur die Inhaber-Rolle.',
+        'role_handle_in_teams' => 'Dieses Handle nutzen Teams schon für eine eigene Rolle (:names). Eine globale Rolle gleichen Namens würde dort unbemerkt ersetzt. Wähle ein anderes Handle.',
         'invalid_role_handle' => 'Das Handle besteht aus Kleinbuchstaben, Ziffern, _ und -, höchstens 64 Zeichen.',
     ],
 ];

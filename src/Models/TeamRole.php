@@ -2,6 +2,7 @@
 
 namespace Goldnead\Teams\Models;
 
+use Goldnead\Teams\Support\TeamRoleStore;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -23,6 +24,19 @@ class TeamRole extends Model
     protected $casts = [
         'permissions' => 'array',
     ];
+
+    /**
+     * The cached reads forget on every write through the model. A write
+     * through the query builder (`->update()`, `->delete()`) bypasses this;
+     * the addon does not do that.
+     */
+    protected static function booted(): void
+    {
+        $flush = fn () => app(TeamRoleStore::class)->flush();
+
+        static::saved($flush);
+        static::deleted($flush);
+    }
 
     /** @return BelongsTo<Team, $this> */
     public function team(): BelongsTo

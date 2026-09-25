@@ -27,6 +27,7 @@ use Goldnead\Teams\Support\JoinGuards;
 use Goldnead\Teams\Support\Permissions;
 use Goldnead\Teams\Support\Roles;
 use Goldnead\Teams\Support\Settings;
+use Goldnead\Teams\Support\TeamRoleStore;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Database\Eloquent\Relations\Relation;
@@ -97,6 +98,7 @@ class ServiceProvider extends AddonServiceProvider
 
         $this->app->scoped(CurrentTeam::class);
         $this->app->scoped(GlobalRoleStore::class);
+        $this->app->scoped(TeamRoleStore::class);
     }
 
     /**

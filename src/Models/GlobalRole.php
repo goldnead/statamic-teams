@@ -2,6 +2,7 @@
 
 namespace Goldnead\Teams\Models;
 
+use Goldnead\Teams\Support\GlobalRoleStore;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -23,4 +24,13 @@ class GlobalRole extends Model
         'permissions' => 'array',
         'removed' => 'boolean',
     ];
+
+    /** The cached read forgets on every write through the model. */
+    protected static function booted(): void
+    {
+        $flush = fn () => app(GlobalRoleStore::class)->flush();
+
+        static::saved($flush);
+        static::deleted($flush);
+    }
 }

@@ -347,7 +347,7 @@ class RoleController extends Controller
     protected function fieldFor(TeamsException $e, string $fallback = 'role'): string
     {
         return match ($e->reason) {
-            TeamsException::INVALID_ROLE_HANDLE, TeamsException::ROLE_EXISTS => 'handle',
+            TeamsException::INVALID_ROLE_HANDLE, TeamsException::ROLE_EXISTS, TeamsException::ROLE_HANDLE_IN_TEAMS => 'handle',
             TeamsException::WILDCARD, TeamsException::UNKNOWN_PERMISSION, TeamsException::ROLE_PROTECTED => 'permissions',
             default => $fallback,
         };

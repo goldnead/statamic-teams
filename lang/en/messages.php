@@ -60,6 +60,7 @@ return [
         'role_in_use' => 'This role is still held (members: :members, open invitations: :invitations). Move them to another role first.',
         'unknown_permission' => 'These permissions do not exist: :permissions',
         'wildcard_not_allowed' => 'Only the owner role holds every permission (*).',
+        'role_handle_in_teams' => 'Teams already use this handle for a role of their own (:names). A global role of that name would silently take its place there. Choose another handle.',
         'invalid_role_handle' => 'The handle consists of lowercase letters, digits, _ and -, at most 64 characters.',
     ],
 ];

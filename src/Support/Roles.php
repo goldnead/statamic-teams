@@ -29,7 +29,7 @@ class Roles
         $roles = $this->global();
 
         if ($team !== null && $team->exists) {
-            foreach ($team->roles()->get() as $role) {
+            foreach (app(TeamRoleStore::class)->for($team) as $role) {
                 $roles[$role->handle] = [
                     'label' => $role->label,
                     'permissions' => $this->normalise($role->handle, (array) ($role->permissions ?? [])),

@@ -64,6 +64,13 @@ class TeamsException extends RuntimeException
 
     public const INVALID_ROLE_HANDLE = 'invalid_role_handle';
 
+    /**
+     * A new global role would take the handle of a role teams already
+     * defined for themselves, and silently become what those replace.
+     * `details.teams` lists them (`id`, `name`).
+     */
+    public const ROLE_HANDLE_IN_TEAMS = 'role_handle_in_teams';
+
     /** @var array<string, int> */
     protected const STATUS = [
         self::NOT_MEMBER => 403,
@@ -90,6 +97,7 @@ class TeamsException extends RuntimeException
         self::UNKNOWN_PERMISSION => 422,
         self::WILDCARD => 422,
         self::INVALID_ROLE_HANDLE => 422,
+        self::ROLE_HANDLE_IN_TEAMS => 409,
     ];
 
     /**
@@ -101,7 +109,8 @@ class TeamsException extends RuntimeException
         ?string $message = null,
         public readonly array $details = [],
     ) {
-        parent::__construct($message ?? __("teams::messages.errors.{$reason}", $details));
+        // Only scalars are placeholders; a list in `details` is for machines.
+        parent::__construct($message ?? __("teams::messages.errors.{$reason}", array_filter($details, 'is_scalar')));
     }
 
     /** @param  array<string, mixed>  $details */
