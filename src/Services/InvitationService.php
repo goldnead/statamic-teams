@@ -12,6 +12,7 @@ use Goldnead\Teams\Models\Team;
 use Goldnead\Teams\Support\IssuedInvitation;
 use Goldnead\Teams\Support\Roles;
 use Goldnead\Teams\Support\Users;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -215,7 +216,7 @@ class InvitationService
         };
     }
 
-    protected function expiry(): ?\Illuminate\Support\Carbon
+    protected function expiry(): ?Carbon
     {
         $days = (int) config('teams.invitations.expires_after_days', 7);
 

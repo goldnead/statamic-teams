@@ -160,6 +160,7 @@ class ImportService
         return Invitation::query()->updateOrCreate(
             ['token_hash' => $hash],
             array_merge([
+                'uuid' => (string) ($invitation['uuid'] ?? Str::uuid()),
                 'team_id' => $team->id,
                 'email' => Str::lower(trim((string) $invitation['email'])),
                 'role' => (string) ($invitation['role'] ?? $this->roles->defaultRole()),

@@ -5,6 +5,7 @@ namespace Goldnead\Teams\Models;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 
 /**
@@ -21,11 +22,11 @@ use Illuminate\Support\Str;
  * @property array<string, mixed>|null $meta
  * @property string $token_hash
  * @property string|null $invited_by
- * @property \Illuminate\Support\Carbon|null $expires_at
- * @property \Illuminate\Support\Carbon|null $accepted_at
+ * @property Carbon|null $expires_at
+ * @property Carbon|null $accepted_at
  * @property string|null $accepted_by
- * @property \Illuminate\Support\Carbon|null $revoked_at
- * @property \Illuminate\Support\Carbon|null $created_at
+ * @property Carbon|null $revoked_at
+ * @property Carbon|null $created_at
  * @property-read Team|null $team
  */
 class Invitation extends Model

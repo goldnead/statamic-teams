@@ -5,6 +5,7 @@ namespace Goldnead\Teams\Models;
 use Goldnead\Teams\Support\Users;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 
 /**
@@ -20,8 +21,8 @@ use Illuminate\Support\Str;
  * @property string $join_method
  * @property array<string, mixed>|null $settings
  * @property array<string, mixed>|null $billing
- * @property \Illuminate\Support\Carbon|null $created_at
- * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
  */
 class Team extends Model
 {

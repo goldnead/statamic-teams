@@ -8,6 +8,8 @@
  */
 
 namespace Goldnead\StatamicAutomations\Facades {
+    use Illuminate\Support\Facades\Event;
+
     if (! class_exists(Automations::class)) {
         class AutomationsRecorder
         {
@@ -23,7 +25,7 @@ namespace Goldnead\StatamicAutomations\Facades {
                 $handle = $definition['handle'];
                 $this->triggers[$handle] = $definition + ['event' => $eventClass];
 
-                \Illuminate\Support\Facades\Event::listen($eventClass, function ($event) use ($handle, $definition) {
+                Event::listen($eventClass, function ($event) use ($handle, $definition) {
                     $payload = $definition['payload'] ?? null;
                     $this->dispatched[] = [
                         'handle' => $handle,

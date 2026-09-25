@@ -3,6 +3,7 @@
 namespace Goldnead\Teams\Integrations\EmailTemplates;
 
 use Goldnead\EmailTemplates\Contracts\EmailTemplateSource;
+use Goldnead\EmailTemplates\Support\EmailTemplateData;
 
 /**
  * Lets `php please email-templates:import` pick up this addon's mails.
@@ -21,7 +22,7 @@ class TeamsTemplateSource implements EmailTemplateSource
 
     public function all(): array
     {
-        /** @var array<int, \Goldnead\EmailTemplates\Support\EmailTemplateData> */
+        /** @var array<int, EmailTemplateData> */
         return $this->templates->templates();
     }
 }

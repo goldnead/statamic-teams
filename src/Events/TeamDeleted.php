@@ -2,7 +2,6 @@
 
 namespace Goldnead\Teams\Events;
 
-
 class TeamDeleted extends TeamEvent
 {
     /**

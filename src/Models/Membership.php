@@ -5,6 +5,8 @@ namespace Goldnead\Teams\Models;
 use Goldnead\Teams\Support\Users;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
+use Statamic\Contracts\Auth\User;
 
 /**
  * One person in one team, with the role they hold there.
@@ -18,7 +20,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string $role
  * @property array<string, mixed>|null $meta
  * @property bool $is_current
- * @property \Illuminate\Support\Carbon|null $joined_at
+ * @property Carbon|null $joined_at
  * @property-read Team|null $team
  */
 class Membership extends Model
@@ -39,7 +41,7 @@ class Membership extends Model
         return $this->belongsTo(Team::class);
     }
 
-    public function user(): ?\Statamic\Contracts\Auth\User
+    public function user(): ?User
     {
         return Users::find($this->user_id);
     }
