@@ -4,6 +4,7 @@ namespace Goldnead\Teams\Integrations\Payments;
 
 use Goldnead\Teams\Models\Team;
 use Goldnead\Teams\Support\Users;
+use Throwable;
 
 /**
  * A team as the buyer in goldnead/statamic-payments.
@@ -11,10 +12,9 @@ use Goldnead\Teams\Support\Users;
  * Payments knows no customer model: the buyer is email, name and country on
  * the payment row, the billing address lives in `payments.meta.address`.
  * This class fills exactly those fields from the team, so the invoice goes
- * to the choir and not to the person who clicked. The team travels along
- * in `meta.team_id`, `meta.team_uuid` and `meta.entitlement_subject`, which
- * is what payments needs to grant access to the team (see README, "Docking
- * point payments").
+ * to the choir and not to the person who clicked. The team itself goes as
+ * `$details['for']` (payments ≥ eb8bfb6), which makes it the subject of the
+ * grant; `meta.team_id` and `meta.team_uuid` let the site find it again.
  *
  * Billing keys on the team: `name`, `company`, `email`, `line1`, `line2`,
  * `postal_code`, `city`, `country` (ISO 3166-1 alpha-2), `vat_id`.
@@ -22,6 +22,8 @@ use Goldnead\Teams\Support\Users;
 class TeamBuyer
 {
     public const CHECKOUT = 'Goldnead\StatamicPayments\Support\Checkout';
+
+    public const ADMISSION = 'Goldnead\Invoices\Support\BuyerAdmission';
 
     public function available(): bool
     {
@@ -59,7 +61,7 @@ class TeamBuyer
     /**
      * The `$details` argument of `Checkout::start()`.
      *
-     * @return array{meta: array<string, mixed>, country?: string, country_source?: string}
+     * @return array{for: Team, meta: array<string, mixed>, country?: string, country_source?: string}
      */
     public function details(Team $team, mixed $payer = null): array
     {
@@ -75,16 +77,21 @@ class TeamBuyer
             'country' => isset($billing['country']) ? strtoupper((string) $billing['country']) : null,
         ], fn ($value) => $value !== null && $value !== '');
 
+        $vatId = $this->stringOrNull($billing['vat_id'] ?? null);
+
         $meta = array_filter([
             'team_id' => (int) $team->getKey(),
             'team_uuid' => (string) $team->uuid,
             'paid_by' => Users::key($payer),
             'address' => $address === [] ? null : $address,
-            'vat_id' => $billing['vat_id'] ?? null,
-            'entitlement_subject' => ['type' => Team::MORPH_ALIAS, 'id' => (string) $team->getKey()],
+            'vat_id' => $vatId,
+            'vat_id_check' => $vatId === null ? null : $this->vatIdCheck($vatId),
         ], fn ($value) => $value !== null && $value !== '');
 
-        $details = ['meta' => $meta];
+        // Who the purchase is for goes through payments' typed parameter, not
+        // meta: payments checks it at the till and stores the subject itself
+        // (`meta.entitlement_subject` is reserved there and refused).
+        $details = ['for' => $team, 'meta' => $meta];
 
         if (isset($address['country'])) {
             $details['country'] = $address['country'];
@@ -125,6 +132,38 @@ class TeamBuyer
         }
 
         return isset($meta['team_id']) ? Team::query()->find((int) $meta['team_id']) : null;
+    }
+
+    /**
+     * The VAT ID's check, frozen onto the payment when statamic-invoices can
+     * make one (VIES by default, with its cache and timeout). The invoice
+     * reads `meta.vat_id_check` and prints what was confirmed and when.
+     * Without invoices nothing is claimed: the number travels unchecked, and
+     * the CP says so next to the field.
+     *
+     * @return array<string, mixed>|null
+     */
+    /** Whether a VAT ID given here is checked at the checkout. */
+    public function checksVatIds(): bool
+    {
+        return class_exists(self::ADMISSION) || app()->bound(self::ADMISSION);
+    }
+
+    protected function vatIdCheck(string $vatId): ?array
+    {
+        if (! $this->checksVatIds()) {
+            return null;
+        }
+
+        try {
+            $check = app(self::ADMISSION)->check($vatId);
+
+            return is_object($check) && method_exists($check, 'toArray') ? (array) $check->toArray() : null;
+        } catch (Throwable $e) {
+            report($e);
+
+            return null;
+        }
     }
 
     protected function stringOrNull(mixed $value): ?string

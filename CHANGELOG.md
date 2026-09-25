@@ -27,3 +27,4 @@
 - `transferOwnership` re-reads both rows under lock and counts the rows it changes.
 - Registers itself with entitlements as subject expander; user subject types from the auth model and `teams.entitlements.user_types`.
 - `Teams::checkout()` requires a payer holding `manage billing` in the team.
+- Checkout names the team through payments' `$details['for']`; `meta.entitlement_subject` is no longer sent. With statamic-invoices, the VAT ID check is frozen as `meta.vat_id_check`; the CP marks the VAT ID as not verified.

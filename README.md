@@ -265,8 +265,15 @@ against a person never touches the team's grant (entitlements' rule).
 Payments has no customer model: the buyer is `email`, `name`, `country` on the payment, the billing
 address sits in `payments.meta.address`. `Teams::checkout()` fills exactly those from the team's
 billing fields (`company`, `name`, `email`, `line1`, `line2`, `postal_code`, `city`, `country`,
-`vat_id`) and carries `meta.team_id`, `meta.team_uuid` and
-`meta.entitlement_subject = {type: team, id}`.
+`vat_id`), names the team as `$details['for']` (payments ≥ eb8bfb6: the grant, renewals, refunds and
+the subscription then belong to the team) and carries `meta.team_id`, `meta.team_uuid`, `meta.paid_by`,
+`meta.address` (as fields) and `meta.vat_id`. The same details work for `Subscriptions::start()`;
+`Teams::checkoutBuyer()` and `Teams::checkoutDetails()` return them.
+
+**VAT ID.** Stored on the team as entered and **not verified** there (the CP says so). With
+statamic-invoices installed, the checkout asks its `BuyerAdmission::check()` (VIES, cached) and
+freezes the answer as `meta.vat_id_check`, which the invoice prints. Without invoices no check is
+claimed.
 
 ```php
 $result = Teams::checkout($team, 'choir-plan-yearly', auth()->user(), url('/thanks'));
@@ -276,11 +283,6 @@ return redirect($result->checkoutUrl);
 **Required: the payer is a member holding `manage billing` in the team.** Otherwise
 `Teams::checkout()` throws `TeamsException` (`not_member` or `forbidden`) and no checkout starts.
 Pass the signed-in user as payer; only system code (a CP action, a job) may pass none.
-
-**Docking point.** Payments grants access to the buyer's email today. For the team to receive the
-grant, payments' `EntitlementsBridge` has to read `meta.entitlement_subject` when it is present
-(details in the build report). Until then, grant from a `PaymentPaid` listener:
-`app(TeamBuyer::class)->teamOf($event->payment)`.
 
 ## Mails
 

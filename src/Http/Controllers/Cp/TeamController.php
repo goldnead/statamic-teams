@@ -4,6 +4,7 @@ namespace Goldnead\Teams\Http\Controllers\Cp;
 
 use Goldnead\Teams\Exceptions\TeamsException;
 use Goldnead\Teams\Integrations\EmailTemplates\MailTemplates;
+use Goldnead\Teams\Integrations\Payments\TeamBuyer;
 use Goldnead\Teams\Models\Invitation;
 use Goldnead\Teams\Models\Membership;
 use Goldnead\Teams\Models\Team;
@@ -164,6 +165,9 @@ class TeamController extends Controller
                 Column::make('expires_on')->label(__('teams::cp.expires'))->sortable(true),
             ],
             'roles' => collect($this->roles->all($record))->map(fn ($role, $handle) => ['value' => $handle, 'label' => __($role['label'])])->values()->all(),
+            // No VAT ID is checked here. At the checkout it is, when
+            // statamic-invoices is installed; the page says which.
+            'vatIdChecked' => app(TeamBuyer::class)->checksVatIds(),
             'metaValueLabels' => collect((array) config('teams.meta_value_labels', []))
                 ->map(fn ($values) => collect((array) $values)->map(fn ($label) => __((string) $label))->all())
                 ->all(),

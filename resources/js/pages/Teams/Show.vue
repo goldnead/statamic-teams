@@ -15,6 +15,7 @@ const props = defineProps([
     'roles',              // [{ value, label }]
     'metaLabels',         // { voice_part: 'Stimmgruppe', … } from teams.meta_labels
     'metaValueLabels',    // { voice_part: { bass: 'Bass', … } } from teams.meta_value_labels
+    'vatIdChecked',       // bool: statamic-invoices checks VAT IDs at the checkout
     'entitlementSubject', // 'team:<id>'
     'urls',
     'canManage',
@@ -236,7 +237,14 @@ function reload() {
                     <Field :label="__('Organisation')" :error="errors['billing.company']"><Input v-model="billing.company" :read-only="!canManage" /></Field>
                     <Field :label="__('Contact person')" :error="errors['billing.name']"><Input v-model="billing.name" :read-only="!canManage" /></Field>
                     <Field :label="__('Invoice email')" :error="errors['billing.email']"><Input v-model="billing.email" type="email" :read-only="!canManage" /></Field>
-                    <Field :label="__('VAT ID')" :error="errors['billing.vat_id']"><Input v-model="billing.vat_id" :read-only="!canManage" /></Field>
+                    <Field
+                        :label="__('VAT ID')"
+                        :badge="__('Not verified')"
+                        :instructions="vatIdChecked
+                            ? __('Not verified here. Checked at each purchase (VIES, via Invoices), and the result is printed on the invoice.')
+                            : __('Not verified. Without the Invoices addon the number goes onto the purchase as entered.')"
+                        :error="errors['billing.vat_id']"
+                    ><Input v-model="billing.vat_id" :read-only="!canManage" /></Field>
                     <Field :label="__('Street')" :error="errors['billing.line1']"><Input v-model="billing.line1" :read-only="!canManage" /></Field>
                     <Field :label="__('Address line 2')" :error="errors['billing.line2']"><Input v-model="billing.line2" :read-only="!canManage" /></Field>
                     <Field :label="__('Postal code')" :error="errors['billing.postal_code']"><Input v-model="billing.postal_code" :read-only="!canManage" /></Field>
