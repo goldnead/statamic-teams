@@ -1,5 +1,33 @@
 # Changelog
 
+## 0.3.1 — 2026-09-26
+
+Findings from the review of 0.3.0.
+
+### Security
+
+- **No widening through "back to the global role".** Deleting a team's narrower version of a
+  global role hands its holders the global permissions back. A role editor may now only do that
+  when the global role holds nothing more than they do; owners and the system still may.
+- **A new global role no longer takes over team roles of the same handle.** Creating one (or
+  resetting a deleted config role) whose handle teams already use for a role of their own is
+  refused with `role_handle_in_teams` (409, the teams in `details.teams`). Before, the team roles
+  silently turned into "replaces global".
+- **No silent fallback to the config.** The stored global roles fall back to `teams.roles` only
+  when their table is missing. Any other database error is thrown; before, it returned the config,
+  and a role deleted or narrowed in the CP got its config permissions back.
+
+### Fixed
+
+- Deleting a role counts its holders inside the transaction (rows locked) and again after the
+  delete; somebody given the role in between rolls the deletion back instead of holding a role that
+  no longer exists.
+- Team roles are read once per request or job instead of once per `Teams::can()`, and forgotten on
+  every write through the model. README: what a long-running job sees.
+- Roles page: the row menu sits next to the name, so it is reachable at 1440 px although the matrix
+  scrolls sideways; cells without a tick carry "No" for screen readers; "Reset to default" says
+  which name and permissions change.
+
 ## 0.3.0 — 2026-09-26
 
 Roles are managed, not only configured.

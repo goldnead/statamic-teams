@@ -56,6 +56,7 @@ class RoleController extends Controller
                 'removed' => false,
                 'usage' => $this->service->usage($handle),
                 'resettable' => $role['source'] === 'customised',
+                'reset_changes' => $role['source'] === 'customised' ? $this->resetChanges($role, $configured[$handle], $permissions) : null,
                 'edit_url' => cp_route('teams.roles.edit', $handle),
                 'reset_url' => cp_route('teams.roles.reset', $handle),
                 'delete_url' => cp_route('teams.roles.destroy', $handle),
@@ -69,6 +70,8 @@ class RoleController extends Controller
                     'removed' => true,
                     'usage' => ['members' => 0, 'invitations' => 0],
                     'resettable' => true,
+                    // Coming back: everything it holds is "added".
+                    'reset_changes' => $this->resetChanges(['label' => $configured[$handle]['label'], 'permissions' => []], $configured[$handle], $permissions),
                     'edit_url' => null,
                     'reset_url' => cp_route('teams.roles.reset', $handle),
                     'delete_url' => null,
@@ -279,6 +282,32 @@ class RoleController extends Controller
         }
 
         return $row;
+    }
+
+    /**
+     * What "reset to default" would change, for the confirmation: the name
+     * (from, to) if it differs, and the permissions gained and lost, as
+     * labels in the order of the permission list.
+     *
+     * @param  array<string, mixed>  $current
+     * @param  array<string, mixed>  $configured
+     * @param  array<string, string>  $labels
+     * @return array{label: list<string>|null, added: list<string>, removed: list<string>}
+     */
+    protected function resetChanges(array $current, array $configured, array $labels): array
+    {
+        $now = (array) $current['permissions'];
+        $then = (array) $configured['permissions'];
+        $pick = fn (array $handles) => array_values(array_map(
+            fn ($handle) => $labels[$handle],
+            array_filter(array_keys($labels), fn ($handle) => in_array($handle, $handles, true)),
+        ));
+
+        return [
+            'label' => $current['label'] !== $configured['label'] ? [(string) $current['label'], (string) $configured['label']] : null,
+            'added' => $pick(array_diff($then, $now)),
+            'removed' => $pick(array_diff($now, $then)),
+        ];
     }
 
     /** @return array<string, mixed> */

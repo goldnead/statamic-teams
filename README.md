@@ -99,12 +99,28 @@ The rules hold for every caller, CP and API alike:
   Labels come from `teams::permissions.<handle>` or the translator.
 - A role somebody holds (member or open invitation) is deleted only together with a role to move
   them to, never into the owner role. Without one the refusal is `role_in_use` with the counts in
-  `details`. Deleting a team's version of a global role moves nobody: they get the global role back.
+  `details`. Holders are counted inside the deleting transaction and again after the delete; a
+  holder that appeared in between rolls the deletion back. Deleting a team's version of a global
+  role moves nobody: they get the global role back.
 - Global roles are site business: a team member (an actor) is refused.
+- A new global role cannot take a handle that teams already use for a role of their own (409
+  `role_handle_in_teams`, the teams in `details.teams`): it would silently become the role those
+  team roles replace. The same holds for resetting a deleted config role.
 - A team member changes the roles of their team only with the team permission `manage team roles`
   (not in `admin` by default), and only within what they hold: every permission they write, and of
   every role they change, replace, delete or move people into, must be theirs. Their own role is an
-  owner's business. So `change roles` alone never lets an admin widen a role.
+  owner's business. So `change roles` alone never lets an admin widen a role. Going back from a
+  team's narrower version to the global role grants the global permissions, so it counts too:
+  only owners (or the system) may restore a global role that holds more than the editor.
+
+**When a change takes effect.** Global and team roles are read once per request or queue job and
+kept for its duration; every write through the addon empties that store. A long-running job (one
+job that loops for minutes) therefore works with the roles as they were when it read them first.
+Call `app(\Goldnead\Teams\Support\GlobalRoleStore::class)->flush()` and
+`app(\Goldnead\Teams\Support\TeamRoleStore::class)->flush()` where it must see changes made
+meanwhile. Only a missing `team_global_roles` table (migration not run) falls back to the config;
+any other database error is thrown, so a deleted or narrowed role never gets its config
+permissions back by accident.
 
 Nobody is put into a team without consent: the Control Panel and the front end invite, they do not add.
 `Teams::addMember()` exists for code that has its own consent (an import, a checkout).
@@ -133,6 +149,7 @@ A refusal is a `Goldnead\Teams\Exceptions\TeamsException` with a stable `reason`
 | `read_only` | 423 | |
 | `role_exists`, `role_protected`, `unknown_permission`, `wildcard_not_allowed`, `invalid_role_handle` | 422 | role editor |
 | `role_in_use` | 409 | `details`: `members`, `invitations` |
+| `role_handle_in_teams` | 409 | `details.teams`: `[{id, name}]` |
 | anything a join guard returns, e.g. `team_full` | 422 | |
 
 `TeamsException::toArray()` (the JSON body) is `{reason, message}`, plus `details` where a reason has

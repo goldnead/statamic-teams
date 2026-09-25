@@ -2,7 +2,7 @@
 import { ref, computed } from 'vue';
 import { Head, Link, router } from '@statamic/cms/inertia';
 import {
-    Header, Listing, Badge, Button, CommandPaletteItem, DropdownItem, Icon,
+    Header, Listing, Badge, Button, CommandPaletteItem, Dropdown, DropdownMenu, DropdownItem, Icon,
     ConfirmationModal, Field, Select, Description, Alert, EmptyStateMenu, EmptyStateItem,
 } from '@statamic/cms/ui';
 
@@ -93,24 +93,40 @@ function reload() {
                 :allow-search="roles.length > 10"
                 @refreshing="reload"
             >
+                <!-- The row actions sit in the name cell, not in the actions
+                     column at the far end: with one column per permission the
+                     matrix scrolls sideways, and that column was off screen
+                     at 1440 px. -->
                 <template #cell-title="{ row }">
-                    <Link v-if="row.edit_url" :href="row.edit_url" class="font-medium hover:underline">{{ row.title }}</Link>
-                    <span v-else class="font-medium text-gray-500 line-through">{{ row.title }}</span>
-                    <Badge v-if="row.handle === ownerRole" pill color="green" :text="__('Owner role')" class="ms-2" />
-                    <Badge v-else-if="row.handle === defaultRole" pill :text="__('Default role')" class="ms-2" />
-                    <Badge v-if="sourceBadge[row.source]" pill :color="sourceBadge[row.source].color" :text="sourceBadge[row.source].text" class="ms-2" />
+                    <div class="flex items-center gap-2">
+                        <Dropdown v-if="row.edit_url || row.resettable || (row.delete_url && ! row.protected)" :aria-label="__('Actions')">
+                            <DropdownMenu>
+                                <DropdownItem v-if="row.edit_url" :text="__('Edit')" icon="edit" :href="row.edit_url" />
+                                <DropdownItem v-if="row.resettable" :text="__('Reset to default')" icon="history" @click="resetTarget = row" />
+                                <DropdownItem v-if="row.delete_url && ! row.protected" :text="__('Delete')" icon="trash" variant="destructive" @click="openDelete(row)" />
+                            </DropdownMenu>
+                        </Dropdown>
+                        <div>
+                            <Link v-if="row.edit_url" :href="row.edit_url" class="font-medium hover:underline">{{ row.title }}</Link>
+                            <span v-else class="font-medium text-gray-500 line-through">{{ row.title }}</span>
+                            <Badge v-if="row.handle === ownerRole" pill color="green" :text="__('Owner role')" class="ms-2" />
+                            <Badge v-else-if="row.handle === defaultRole" pill :text="__('Default role')" class="ms-2" />
+                            <Badge v-if="sourceBadge[row.source]" pill :color="sourceBadge[row.source].color" :text="sourceBadge[row.source].text" class="ms-2" />
+                        </div>
+                    </div>
                 </template>
                 <template v-for="(permission, index) in permissions" :key="permission.value" #[`cell-perm_${index}`]="{ row }">
-                    <Icon v-if="row[`perm_${index}`] && ! row.removed" name="checkmark" class="size-4 text-green-600 dark:text-green-400" :aria-label="permission.label" />
-                    <span v-else class="text-gray-300 dark:text-gray-600" aria-hidden="true">–</span>
+                    <template v-if="row[`perm_${index}`] && ! row.removed">
+                        <Icon name="checkmark" class="size-4 text-green-600 dark:text-green-400" />
+                        <span class="sr-only">{{ __('Yes') }}</span>
+                    </template>
+                    <template v-else>
+                        <span class="text-gray-300 dark:text-gray-600" aria-hidden="true">–</span>
+                        <span class="sr-only">{{ __('No') }}</span>
+                    </template>
                 </template>
                 <template #cell-members="{ row }">
                     <span class="tabular-nums">{{ row.usage.members }}</span>
-                </template>
-                <template #prepended-row-actions="{ row }">
-                    <DropdownItem v-if="row.edit_url" :text="__('Edit')" icon="edit" :href="row.edit_url" />
-                    <DropdownItem v-if="row.resettable" :text="__('Reset to default')" icon="history" @click="resetTarget = row" />
-                    <DropdownItem v-if="row.delete_url && ! row.protected" :text="__('Delete')" icon="trash" variant="destructive" @click="openDelete(row)" />
                 </template>
             </Listing>
 
@@ -147,10 +163,25 @@ function reload() {
         <ConfirmationModal
             :open="resetTarget !== null"
             :title="__('Reset to default')"
-            :body-text="__('Name and permissions go back to what the configuration says. Members keep the role.')"
             :button-text="__('Reset')"
             @cancel="resetTarget = null"
             @confirm="reset"
-        />
+        >
+            <div v-if="resetTarget" class="space-y-3 text-sm">
+                <Description :text="__('Name and permissions go back to what the configuration says. Members keep the role.')" />
+                <p v-if="resetTarget.reset_changes?.label">
+                    {{ __('Name') }}: <span class="line-through">{{ resetTarget.reset_changes.label[0] }}</span> → <strong>{{ resetTarget.reset_changes.label[1] }}</strong>
+                </p>
+                <p v-if="resetTarget.reset_changes?.added.length">
+                    <span class="font-medium text-green-700 dark:text-green-400">{{ __('Gains') }}:</span> {{ resetTarget.reset_changes.added.join(', ') }}
+                </p>
+                <p v-if="resetTarget.reset_changes?.removed.length">
+                    <span class="font-medium text-red-700 dark:text-red-400">{{ __('Loses') }}:</span> {{ resetTarget.reset_changes.removed.join(', ') }}
+                </p>
+                <p v-if="resetTarget.reset_changes && ! resetTarget.reset_changes.label && ! resetTarget.reset_changes.added.length && ! resetTarget.reset_changes.removed.length">
+                    {{ __('Nothing changes.') }}
+                </p>
+            </div>
+        </ConfirmationModal>
     </div>
 </template>

@@ -66,6 +66,17 @@ class RolesCpTest extends TestCase
     }
 
     #[Test]
+    public function the_index_says_what_a_reset_would_change(): void
+    {
+        Teams::updateRole('admin', ['label' => 'Vorstand', 'permissions' => ['invite members', 'delete team']]);
+
+        $this->actingAsCpUser('roles@example.com', ['view teams', 'manage team roles'])
+            ->get('/cp/teams/roles')
+            ->assertOk()
+            ->assertSee('"reset_changes":{"label":["Vorstand","Admin"],"added":["Remove members","Assign roles","Edit team","View billing","Manage billing"],"removed":["Delete team"]}');
+    }
+
+    #[Test]
     public function the_edit_page_is_core_publish_form_with_checkboxes(): void
     {
         $this->actingAsCpUser('roles@example.com', ['view teams', 'manage team roles'])
