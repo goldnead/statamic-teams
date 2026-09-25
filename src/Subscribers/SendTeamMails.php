@@ -49,7 +49,9 @@ class SendTeamMails
 
         $this->send('invitation', [$invitation->email], [
             'team' => ['name' => $team->name],
-            'inviter' => ['name' => Users::name($invitation->invited_by) ?? $team->name],
+            // Invited from the CP there is no inviting member; the owner is
+            // who the invitation comes from as far as the reader is concerned.
+            'inviter' => ['name' => Users::name($invitation->invited_by) ?? Users::name($team->owner_id) ?? $team->name],
             'role' => $this->roles->label($invitation->role, $team),
             'email' => $invitation->email,
             'accept_url' => $event->acceptUrl,
