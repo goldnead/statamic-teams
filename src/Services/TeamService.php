@@ -7,6 +7,7 @@ use Goldnead\Teams\Events\TeamCreated;
 use Goldnead\Teams\Events\TeamDeleted;
 use Goldnead\Teams\Events\TeamUpdated;
 use Goldnead\Teams\Exceptions\TeamsException;
+use Goldnead\Teams\Models\Membership;
 use Goldnead\Teams\Models\Team;
 use Goldnead\Teams\Support\JoinCodes;
 use Goldnead\Teams\Support\Roles;
@@ -158,7 +159,9 @@ class TeamService
         }
 
         $toKey = Users::key($to);
-        $membership = $team->membershipOf($toKey) ?? throw TeamsException::because(TeamsException::NOT_MEMBER);
+        if (! $team->hasMember($toKey)) {
+            throw TeamsException::because(TeamsException::NOT_MEMBER);
+        }
         // Who hands over is the actor, not whoever `owner_id` happens to
         // name: in a team with two owners, the other one keeps the role.
         $fromKey = $this->authorizer->actorKey($actor) ?? $team->owner_id;
@@ -168,11 +171,30 @@ class TeamService
             throw TeamsException::because(TeamsException::ALREADY_OWNER);
         }
 
-        DB::transaction(function () use ($team, $membership, $fromKey, $toKey, $owner) {
-            $membership->update(['role' => $owner]);
+        $demotedTo = array_key_exists('admin', $this->roles->all($team)) ? 'admin' : $this->roles->defaultRole();
 
-            if ($fromKey !== null) {
-                $team->members()->where('user_id', $fromKey)->update(['role' => array_key_exists('admin', $this->roles->all($team)) ? 'admin' : $this->roles->defaultRole()]);
+        DB::transaction(function () use ($team, $fromKey, $toKey, $owner, $demotedTo) {
+            // Both rows again, locked: the target may have left, or the
+            // giver been removed, since the checks above. Without the
+            // reload the giver would be demoted and nobody promoted, and the
+            // team would end without an owner.
+            $rows = $team->members()
+                ->whereIn('user_id', array_filter([$toKey, $fromKey]))
+                ->lockForUpdate()
+                ->get()
+                ->keyBy('user_id');
+
+            $target = $rows->get((string) $toKey) ?? throw TeamsException::because(TeamsException::NOT_MEMBER);
+
+            if (Membership::query()->whereKey($target->id)->update(['role' => $owner]) !== 1) {
+                throw TeamsException::because(TeamsException::NOT_MEMBER);
+            }
+
+            $giver = $fromKey === null ? null : $rows->get((string) $fromKey);
+
+            if ($giver !== null && $giver->role === $owner
+                && Membership::query()->whereKey($giver->id)->where('role', $owner)->update(['role' => $demotedTo]) !== 1) {
+                throw TeamsException::because(TeamsException::NOT_MEMBER);
             }
 
             $team->owner_id = $toKey;

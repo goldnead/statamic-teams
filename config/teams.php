@@ -161,6 +161,11 @@ return [
 
     'meta_labels' => [],
 
+    // How the CP shows the values of a meta field, per key, e.g.
+    // ['voice_part' => ['soprano' => 'Soprano', 'bass' => 'Bass']].
+    // Through the translator as well. A value without a label is shown as is.
+    'meta_value_labels' => [],
+
     /*
     |--------------------------------------------------------------------------
     | Mails

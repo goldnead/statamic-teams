@@ -132,7 +132,8 @@ class TeamController extends Controller
         $invitations = $record->invitations()->latest()->limit(100)->get()->map(fn (Invitation $i) => $i->summary() + [
             'role_label' => $this->roles->label($i->role, $record),
             'created_at' => $i->created_at?->toDateString(),
-            'expires_on' => $i->expires_at?->toDateString(),
+            // Accepted or withdrawn: its end date says nothing any more.
+            'expires_on' => in_array($i->status(), [Invitation::STATUS_PENDING, Invitation::STATUS_EXPIRED], true) ? $i->expires_at?->toDateString() : null,
             'resend_url' => cp_route('teams.invitations.resend', [$record->id, $i->id]),
             'delete_url' => cp_route('teams.invitations.destroy', [$record->id, $i->id]),
         ])->values()->all();
@@ -163,6 +164,9 @@ class TeamController extends Controller
                 Column::make('expires_on')->label(__('teams::cp.expires'))->sortable(true),
             ],
             'roles' => collect($this->roles->all($record))->map(fn ($role, $handle) => ['value' => $handle, 'label' => __($role['label'])])->values()->all(),
+            'metaValueLabels' => collect((array) config('teams.meta_value_labels', []))
+                ->map(fn ($values) => collect((array) $values)->map(fn ($label) => __((string) $label))->all())
+                ->all(),
             'metaLabels' => collect($members)
                 ->flatMap(fn ($m) => array_keys($m['meta']))
                 ->unique()

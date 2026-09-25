@@ -127,7 +127,7 @@ class InvitationService
                 throw TeamsException::because(TeamsException::INVITATION_USED);
             }
 
-            return $this->memberships->add($team, $key, $invitation->role, $invitation->meta ?? [], 'invitation');
+            return $this->memberships->add($team, $key, $this->grantableRole($invitation, $team), $invitation->meta ?? [], 'invitation');
         });
 
         $invitation->refresh();
@@ -203,6 +203,31 @@ class InvitationService
         }
 
         return url(trim((string) config('teams.routes.prefix', 'teams'), '/').'/invitations/'.$token);
+    }
+
+    /**
+     * The role an invitation grants when it is accepted, not when it was
+     * sent. Whoever invited must still be in the team and still hold every
+     * permission of the role; otherwise the invitation is not refused (the
+     * person was invited in good faith) but grants only the default role,
+     * and the team can raise it. An invitation from the system (CP, import)
+     * keeps its role.
+     */
+    protected function grantableRole(Invitation $invitation, Team $team): string
+    {
+        if ($invitation->invited_by === null) {
+            return $invitation->role;
+        }
+
+        $inviterRole = $team->roleOf($invitation->invited_by);
+
+        if ($inviterRole !== null
+            && $this->roles->exists($invitation->role, $team)
+            && $this->roles->covers($inviterRole, $invitation->role, $team)) {
+            return $invitation->role;
+        }
+
+        return $this->roles->defaultRole();
     }
 
     protected function assertUsable(Invitation $invitation): void

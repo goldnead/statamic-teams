@@ -14,6 +14,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
+use Ramsey\Uuid\Uuid;
 
 /**
  * Taking over teams from another system with their identity intact.
@@ -35,6 +36,11 @@ class ImportService
         protected Roles $roles,
         protected JoinCodes $joinCodes,
     ) {}
+
+    public static function uuidForId(int $id): string
+    {
+        return Uuid::uuid5(Uuid::NAMESPACE_URL, 'statamic-teams:team:'.$id)->toString();
+    }
 
     /**
      * What the imports so far could only take over approximately (an
@@ -108,6 +114,14 @@ class ImportService
 
         if ($uuid !== '' && ! Str::isUuid($uuid)) {
             throw new InvalidArgumentException("[{$uuid}] is not a UUID.");
+        }
+
+        // A file with ids but no uuids must import the same way twice. The
+        // uuid is derived from the id (UUID v5), so the second run finds the
+        // team of the first, and a team that got the id otherwise (random
+        // uuid) still counts as a collision.
+        if ($uuid === '' && isset($data['id'])) {
+            $uuid = self::uuidForId((int) $data['id']);
         }
 
         return DB::transaction(function () use ($data, $name, $uuid) {
@@ -222,28 +236,58 @@ class ImportService
         // `accepted_at`. An accepted invitation without a date must not come
         // back as open: its link would let a second account in.
         $settledAt = $invitation['accepted_at'] ?? $invitation['updated_at'] ?? $invitation['created_at'] ?? now()->toDateTimeString();
+        $status = isset($invitation['status']) ? strtolower((string) $invitation['status']) : null;
 
-        match ($status = isset($invitation['status']) ? strtolower((string) $invitation['status']) : null) {
-            null, 'pending', 'expired' => null,
-            'accepted' => $dates['accepted_at'] ??= $settledAt,
-            'declined', 'revoked', 'rejected', 'cancelled', 'canceled' => $dates['revoked_at'] ??= $invitation['revoked_at'] ?? $invitation['updated_at'] ?? $settledAt,
-            default => $this->warn($team->name, "invitation for [{$invitation['email']}] has the unknown status [{$status}]; imported as withdrawn."),
-        };
-
-        if ($status !== null && ! in_array($status, ['pending', 'expired', 'accepted', 'declined', 'revoked', 'rejected', 'cancelled', 'canceled'], true)) {
-            $dates['revoked_at'] ??= $settledAt;
+        switch ($status) {
+            case 'accepted':
+                $dates['accepted_at'] ??= $settledAt;
+                break;
+            case 'declined':
+            case 'revoked':
+            case 'rejected':
+            case 'cancelled':
+            case 'canceled':
+                $dates['revoked_at'] ??= $invitation['updated_at'] ?? $settledAt;
+                break;
+            case 'expired':
+                // Expired with no date would come back open with no end.
+                $dates['expires_at'] ??= $invitation['updated_at'] ?? $invitation['created_at'] ?? now()->subSecond()->toDateTimeString();
+                break;
+            case null:
+            case 'pending':
+                break;
+            default:
+                $this->warn($team->name, "invitation for [{$invitation['email']}] has the unknown status [{$status}]; imported as withdrawn.");
+                $dates['revoked_at'] ??= $settledAt;
         }
 
-        return Invitation::query()->updateOrCreate(
-            ['token_hash' => $hash],
-            array_merge([
-                'uuid' => (string) ($invitation['uuid'] ?? Str::uuid()),
-                'team_id' => $team->id,
-                'email' => Str::lower(trim((string) $invitation['email'])),
-                'role' => (string) ($invitation['role'] ?? $this->roles->defaultRole()),
-                'meta' => $invitation['meta'] ?? null,
-                'invited_by' => Users::key($invitation['invited_by'] ?? null),
-            ], array_map(fn ($value) => $value === null ? null : Carbon::parse($value), $dates)),
-        );
+        $open = ($dates['accepted_at'] ?? null) === null && ($dates['revoked_at'] ?? null) === null;
+
+        // An open invitation without an end gets the standard lifetime from
+        // today, like a freshly sent one, not a link that works forever.
+        if ($open && ($dates['expires_at'] ?? null) === null && ($days = (int) config('teams.invitations.expires_after_days', 7)) > 0) {
+            $dates['expires_at'] = now()->addDays($days)->toDateTimeString();
+        }
+
+        $existing = Invitation::query()->where('token_hash', $hash)->first();
+
+        // The same token in another team is that team's invitation, not
+        // this one's: taking it over would move it, link and all.
+        if ($existing !== null && (int) $existing->team_id !== (int) $team->id) {
+            throw new TeamsException(TeamsException::IMPORT_COLLISION, __('teams::messages.errors.import_collision')." (invitation for {$existing->email} belongs to team #{$existing->team_id})");
+        }
+
+        $invitationRow = $existing ?? new Invitation(['token_hash' => $hash]);
+
+        $invitationRow->forceFill(array_merge([
+            'uuid' => $existing !== null ? $existing->uuid : (string) ($invitation['uuid'] ?? Str::uuid()),
+            'team_id' => $team->id,
+            'email' => Str::lower(trim((string) $invitation['email'])),
+            'role' => (string) ($invitation['role'] ?? $this->roles->defaultRole()),
+            'meta' => $invitation['meta'] ?? null,
+            'invited_by' => Users::key($invitation['invited_by'] ?? null),
+        ], array_map(fn ($value) => $value === null ? null : Carbon::parse($value), $dates)))->save();
+
+        return $invitationRow;
     }
 }

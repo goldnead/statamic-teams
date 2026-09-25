@@ -87,6 +87,29 @@ class HardeningTest extends TestCase
     }
 
     #[Test]
+    public function meta_values_can_be_labelled_and_settled_invitations_show_no_expiry(): void
+    {
+        config([
+            'teams.meta_labels' => ['voice_part' => 'Stimmgruppe'],
+            'teams.meta_value_labels' => ['voice_part' => ['bass' => 'Bass', 'alto' => 'Alt']],
+        ]);
+        $owner = $this->makeUser('owner@example.com');
+        $team = Teams::create('Chor', $owner);
+        Teams::addMember($team, $this->makeUser('bob@example.com'), null, ['voice_part' => 'alto']);
+        $open = Teams::invite($team, 'open@example.com');
+        $gone = Teams::invite($team, 'gone@example.com');
+        Teams::revokeInvitation($gone->invitation);
+
+        $page = $this->actingAsCpUser('viewer@example.com', ['view teams'])->get('/cp/teams/'.$team->id)->assertOk();
+        $props = json_decode(html_entity_decode((string) preg_replace('/.*data-page="([^"]+)".*/s', '$1', $page->getContent())), true)['props'];
+
+        $this->assertSame('Alt', $props['metaValueLabels']['voice_part']['alto']);
+        $invitations = collect($props['invitations'])->keyBy('email');
+        $this->assertNotNull($invitations['open@example.com']['expires_on']);
+        $this->assertNull($invitations['gone@example.com']['expires_on']);
+    }
+
+    #[Test]
     public function event_descriptions_carry_no_markdown(): void
     {
         foreach (EventCatalog::all() as $event) {

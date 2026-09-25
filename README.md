@@ -72,7 +72,13 @@ In Antlers, `{{ teams:switch_form }}`, `{{ teams:members }}`, `{{ teams:invite_f
 **Nobody hands out more than they hold.** Whoever assigns a role, invites into it or removes someone
 holding it must hold every permission of that role; a role with `*` and the owner role only by an
 owner. Changing one's own role, and demoting or removing an owner, is an owner's business. The
-last-owner check runs inside the write's transaction with the owner rows locked.
+last-owner check runs inside the write's transaction with the owner rows locked. The same rule
+covers editing someone else's membership fields (`updateMemberMeta`).
+
+**An invitation grants what its sender may still give.** On acceptance, the person who invited must
+still be in the team and hold every permission of the invited role. If not, the invitation is not
+refused (the invitee acted in good faith) but grants only `default_role`; the team can raise it.
+Invitations from the CP or an import (no sender) keep their role.
 
 Nobody is put into a team without consent: the Control Panel and the front end invite, they do not add.
 `Teams::addMember()` exists for code that has its own consent (an import, a checkout).
@@ -284,6 +290,11 @@ grant, payments' `EntitlementsBridge` has to read `meta.entitlement_subject` whe
 With email-templates, the CP entry wins; without it, or before `teams:mail-templates`, the shipped
 text (`lang/*/mail.php`) is sent. Variables per mail are listed on the Wiring page.
 
+With an email-templates version that has the template registry, each mail is registered there
+(occasion, event, placeholders with label and example, default text): the template list then shows
+"Sent on: Teams: …" and Live Preview fills in the examples. Older versions get the defaults through
+the `email-templates.sources` import tag instead.
+
 ## Events
 
 Every event extends `Goldnead\Teams\Events\TeamEvent` with a stable `handle()` and a `payload()` of ids
@@ -327,15 +338,18 @@ transaction). Idempotent by `uuid`, no events, no mails.
 A plain `token` is hashed on the way in, so links already in someone's inbox keep working. An unknown
 role stops the import with nothing written.
 
-- **Only the same team is updated.** A fixed `id` held by a different team (different uuid, or none
-  given) stops the import (`import_collision`). `--dry-run` checks every team and lists every
-  problem, then writes nothing.
+- **Only the same team is updated.** A fixed `id` held by a different team stops the import
+  (`import_collision`). Without a `uuid`, the uuid is derived from the `id` (UUID v5), so a file with
+  ids only imports the same way twice. An invitation token that belongs to another team is a
+  collision as well. `--dry-run` checks every team and lists every problem, then writes nothing.
 - **Invitation `status`** is taken over: `accepted` sets `accepted_at` (from `accepted_at`,
-  `updated_at` or `created_at`), `declined`/`revoked` set `revoked_at`. An accepted invitation never
-  comes back as open. An unknown status is imported as withdrawn and reported.
+  `updated_at` or `created_at`), `declined`/`revoked` set `revoked_at`, `expired` sets `expires_at`
+  if it is missing. An accepted or expired invitation never comes back as open; an open one without
+  an end gets the standard lifetime from the day of the import. An unknown status is imported as
+  withdrawn and reported.
 - **`join_method`** other than `invitation_only` and `join_code` (ChoirLive's `join_request`) is
-  imported as `invitation_only` with a warning in the report; the join code is kept. On PostgreSQL, reset the `teams_id_seq` sequence after
-importing fixed ids.
+  imported as `invitation_only` with a warning in the report; the join code is kept.
+- On PostgreSQL, reset the `teams_id_seq` sequence after importing fixed ids.
 
 ## Settings
 

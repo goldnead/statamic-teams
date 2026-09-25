@@ -20,4 +20,8 @@
 - Nobody hands out, invites into or removes a role holding more than their own; owners only by owners; last-owner check under a row lock.
 - `teams.current.fallback_to_current` and `Teams::currentOrFail()`.
 - Join by code limited per account and per address (`teams.routes.join_limits`); form redirects only to paths on the site.
-- `teams.meta_labels` for the membership fields in the CP.
+- `teams.meta_labels` and `teams.meta_value_labels` for the membership fields in the CP.
+- The four mails are registered with email-templates' template registry when it is there.
+- Accepting an invitation grants at most what its sender may still give; `updateMemberMeta` follows the role rule.
+- Import: tokens of other teams and fixed ids of other teams are collisions; ids without uuids import idempotently; `expired` and undated invitations do not come back open.
+- `transferOwnership` re-reads both rows under lock and counts the rows it changes.

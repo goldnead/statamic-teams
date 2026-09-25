@@ -163,11 +163,15 @@ class MembershipService
      */
     public function updateMeta(Team $team, mixed $user, array $meta, mixed $actor = null): Membership
     {
-        if (Users::key($actor) !== Users::key($user)) {
-            $this->authorizer->authorize($actor, $team, 'change roles');
-        }
-
         $membership = $team->membershipOf($user) ?? throw TeamsException::because(TeamsException::NOT_MEMBER);
+
+        // Someone else's fields: same rule as for their role. Nobody edits
+        // the membership of a person holding more than they do.
+        if ($actor !== null && Users::key($actor) !== $membership->user_id) {
+            $this->authorizer->authorize($actor, $team, 'change roles');
+            $this->guardAgainstOwnerChange($team, $membership, $actor);
+            $this->authorizer->authorizeRole($actor, $team, $membership->role);
+        }
         $merged = array_filter(array_merge($membership->meta ?? [], $meta), fn ($value) => $value !== null);
         $membership->update(['meta' => $merged === [] ? null : $merged]);
 
