@@ -88,6 +88,10 @@ class TeamService
 
         $values = Arr::only($attributes, self::UPDATABLE);
 
+        if (isset($values['join_method']) && ! in_array($values['join_method'], Team::JOIN_METHODS, true)) {
+            throw new \InvalidArgumentException("Unknown join method [{$values['join_method']}]. Known: ".implode(', ', Team::JOIN_METHODS).'.');
+        }
+
         if (isset($values['settings']) && is_array($values['settings'])) {
             $values['settings'] = array_merge($team->settings ?? [], $values['settings']);
         }

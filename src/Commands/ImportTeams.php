@@ -9,17 +9,22 @@ use RuntimeException;
 use Throwable;
 
 /**
- * `php please teams:import teams.json`
+ * `php please teams:import teams.json [--dry-run]`
  *
  * The file holds a list of teams in the shape `Teams::import()` takes (see
  * README, "Importing teams"). All teams go in one transaction: a file that
  * fails halfway leaves nothing behind, so it can be fixed and run again.
+ *
+ * `--dry-run` goes through every team, each in its own savepoint, and lists
+ * every problem (an id another team holds, an unknown role) instead of
+ * stopping at the first; then it rolls everything back. Warnings (what was
+ * taken over only approximately) are listed in both modes.
  */
 class ImportTeams extends Command
 {
     protected $signature = 'teams:import
         {file : Path to a JSON file with a list of teams}
-        {--dry-run : Check the file and roll everything back}';
+        {--dry-run : Check the whole file, list every problem, write nothing}';
 
     protected $description = 'Import teams with their members, roles, join codes and invitations, keeping ids and uuids.';
 
@@ -42,12 +47,30 @@ class ImportTeams extends Command
         }
 
         $dryRun = (bool) $this->option('dry-run');
+        $problems = [];
+        $importer->flushWarnings();
 
         try {
-            DB::transaction(function () use ($teams, $importer, $dryRun) {
-                foreach ($teams as $data) {
-                    $team = $importer->import((array) $data);
-                    $this->line(sprintf('  %s #%d %s (%d members)', $dryRun ? 'would import' : 'imported', $team->id, $team->name, $team->members()->count()));
+            DB::transaction(function () use ($teams, $importer, $dryRun, &$problems) {
+                foreach ($teams as $index => $data) {
+                    $label = (string) ($data['name'] ?? '#'.$index);
+
+                    try {
+                        // A savepoint per team in a dry run, so one bad team
+                        // does not hide the problems of the next.
+                        $team = $dryRun
+                            ? DB::transaction(fn () => $importer->import((array) $data))
+                            : $importer->import((array) $data);
+
+                        $this->line(sprintf('  %s #%d %s (%d members)', $dryRun ? 'ok' : 'imported', $team->id, $team->name, $team->members()->count()));
+                    } catch (Throwable $e) {
+                        if (! $dryRun) {
+                            throw $e;
+                        }
+
+                        $problems[] = "{$label}: {$e->getMessage()}";
+                        $this->line("  <error>problem</error> {$label}: {$e->getMessage()}");
+                    }
                 }
 
                 if ($dryRun) {
@@ -55,19 +78,37 @@ class ImportTeams extends Command
                 }
             });
         } catch (Throwable $e) {
-            if ($dryRun && $e->getMessage() === 'dry-run') {
-                $this->info('Dry run: '.count($teams).' teams checked, nothing written.');
+            if (! $dryRun || $e->getMessage() !== 'dry-run') {
+                $this->printWarnings($importer);
+                $this->error('Import stopped, nothing was written: '.$e->getMessage());
 
-                return self::SUCCESS;
+                return self::FAILURE;
+            }
+        }
+
+        $this->printWarnings($importer);
+
+        if ($dryRun) {
+            if ($problems !== []) {
+                $this->error(count($problems).' of '.count($teams).' teams cannot be imported. Nothing was written.');
+
+                return self::FAILURE;
             }
 
-            $this->error('Import stopped, nothing was written: '.$e->getMessage());
+            $this->info('Dry run: '.count($teams).' teams checked, nothing written.');
 
-            return self::FAILURE;
+            return self::SUCCESS;
         }
 
         $this->info(count($teams).' teams imported.');
 
         return self::SUCCESS;
+    }
+
+    protected function printWarnings(ImportService $importer): void
+    {
+        foreach ($importer->warnings() as $warning) {
+            $this->warn('  warning '.$warning);
+        }
     }
 }

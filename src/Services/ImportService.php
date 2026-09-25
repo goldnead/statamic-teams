@@ -28,10 +28,71 @@ use InvalidArgumentException;
  */
 class ImportService
 {
+    /** @var list<string> */
+    protected array $warnings = [];
+
     public function __construct(
         protected Roles $roles,
         protected JoinCodes $joinCodes,
     ) {}
+
+    /**
+     * What the imports so far could only take over approximately (an
+     * unsupported join method, an unknown invitation status). For the
+     * import report; `flushWarnings()` starts a new one.
+     *
+     * @return list<string>
+     */
+    public function warnings(): array
+    {
+        return $this->warnings;
+    }
+
+    public function flushWarnings(): void
+    {
+        $this->warnings = [];
+    }
+
+    protected function warn(string $team, string $message): void
+    {
+        $this->warnings[] = "{$team}: {$message}";
+    }
+
+    /**
+     * The row this import writes into.
+     *
+     * Only the same team is updated: same uuid, and if an id is given, the
+     * same id. A fixed id that another team holds (a different uuid, or none
+     * given) stops the import: overwriting it would silently hand that
+     * team's members, code and billing address to the imported one.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    protected function resolveTarget(array $data, string $uuid): Team
+    {
+        $id = isset($data['id']) ? (int) $data['id'] : null;
+        $byUuid = $uuid !== '' ? Team::query()->where('uuid', $uuid)->first() : null;
+
+        if ($byUuid !== null) {
+            if ($id !== null && (int) $byUuid->id !== $id) {
+                throw new TeamsException(TeamsException::IMPORT_COLLISION, __('teams::messages.errors.import_collision')." (uuid {$uuid} is #{$byUuid->id}, not #{$id})");
+            }
+
+            return $byUuid;
+        }
+
+        if ($id !== null && ($holder = Team::query()->find($id)) !== null) {
+            throw new TeamsException(TeamsException::IMPORT_COLLISION, __('teams::messages.errors.import_collision')." (#{$id} {$holder->name}, uuid {$holder->uuid})");
+        }
+
+        $team = new Team;
+
+        if ($id !== null) {
+            $team->id = $id;
+        }
+
+        return $team;
+    }
 
     /**
      * @param  array<string, mixed>  $data  See README, "Importing teams".
@@ -50,15 +111,15 @@ class ImportService
         }
 
         return DB::transaction(function () use ($data, $name, $uuid) {
-            $team = $uuid !== '' ? Team::query()->where('uuid', $uuid)->first() : null;
-            $team ??= isset($data['id']) ? Team::query()->find((int) $data['id']) : null;
-            $team ??= new Team;
-
-            if (! $team->exists && isset($data['id'])) {
-                $team->id = (int) $data['id'];
-            }
+            $team = $this->resolveTarget($data, $uuid);
 
             $joinCode = isset($data['join_code']) && $data['join_code'] !== '' ? $this->joinCodes->normalise((string) $data['join_code']) : null;
+            $joinMethod = (string) ($data['join_method'] ?? ($joinCode !== null ? Team::JOIN_CODE : Team::JOIN_INVITATION_ONLY));
+
+            if (! in_array($joinMethod, Team::JOIN_METHODS, true)) {
+                $this->warn($name, "join_method [{$joinMethod}] is not supported; the team accepts invitations only. The join code is kept and works again once join_method is set to join_code.");
+                $joinMethod = Team::JOIN_INVITATION_ONLY;
+            }
 
             $team->forceFill(array_filter([
                 'uuid' => $uuid !== '' ? $uuid : ($team->uuid ?: (string) Str::uuid()),
@@ -66,7 +127,7 @@ class ImportService
                 'type' => (string) ($data['type'] ?? $team->type ?? config('teams.default_type', 'team')),
                 'owner_id' => Users::key($data['owner_id'] ?? null) ?? $team->owner_id,
                 'join_code' => $joinCode,
-                'join_method' => (string) ($data['join_method'] ?? ($joinCode !== null ? Team::JOIN_CODE : Team::JOIN_INVITATION_ONLY)),
+                'join_method' => $joinMethod,
                 'settings' => $data['settings'] ?? $team->settings,
                 'billing' => $data['billing'] ?? $team->billing,
                 'created_at' => isset($data['created_at']) ? Carbon::parse($data['created_at']) : null,
@@ -156,6 +217,22 @@ class ImportService
         }
 
         $dates = Arr::only($invitation, ['expires_at', 'accepted_at', 'revoked_at', 'created_at']);
+
+        // ChoirLive keeps the state in `status` and did not always write
+        // `accepted_at`. An accepted invitation without a date must not come
+        // back as open: its link would let a second account in.
+        $settledAt = $invitation['accepted_at'] ?? $invitation['updated_at'] ?? $invitation['created_at'] ?? now()->toDateTimeString();
+
+        match ($status = isset($invitation['status']) ? strtolower((string) $invitation['status']) : null) {
+            null, 'pending', 'expired' => null,
+            'accepted' => $dates['accepted_at'] ??= $settledAt,
+            'declined', 'revoked', 'rejected', 'cancelled', 'canceled' => $dates['revoked_at'] ??= $invitation['revoked_at'] ?? $invitation['updated_at'] ?? $settledAt,
+            default => $this->warn($team->name, "invitation for [{$invitation['email']}] has the unknown status [{$status}]; imported as withdrawn."),
+        };
+
+        if ($status !== null && ! in_array($status, ['pending', 'expired', 'accepted', 'declined', 'revoked', 'rejected', 'cancelled', 'canceled'], true)) {
+            $dates['revoked_at'] ??= $settledAt;
+        }
 
         return Invitation::query()->updateOrCreate(
             ['token_hash' => $hash],

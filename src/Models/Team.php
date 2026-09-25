@@ -32,6 +32,9 @@ class Team extends Model
 
     public const JOIN_CODE = 'join_code';
 
+    /** The join methods this addon implements. */
+    public const JOIN_METHODS = [self::JOIN_INVITATION_ONLY, self::JOIN_CODE];
+
     /**
      * The alias under which a team appears as a polymorphic subject, for
      * instance in `entitlements.subject_type`. Registered in the morph map
