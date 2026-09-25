@@ -8,6 +8,7 @@ use Goldnead\Teams\Models\Invitation;
 use Goldnead\Teams\Models\Membership;
 use Goldnead\Teams\Models\Team;
 use Goldnead\Teams\Support\Roles;
+use Goldnead\Teams\Support\Setup;
 use Goldnead\Teams\Support\Users;
 use Goldnead\Teams\Support\Wiring;
 use Goldnead\Teams\TeamsManager;
@@ -36,7 +37,7 @@ class TeamController extends Controller
     {
         $this->authorizeOrFail($request, 'view teams');
 
-        if ($setup = $this->setupGuard(__('teams::messages.nav'))) {
+        if ($setup = Setup::guard(__('teams::messages.nav'))) {
             return $setup;
         }
 
@@ -110,7 +111,7 @@ class TeamController extends Controller
     {
         $this->authorizeOrFail($request, 'view teams');
 
-        if ($setup = $this->setupGuard(__('teams::messages.nav'))) {
+        if ($setup = Setup::guard(__('teams::messages.nav'))) {
             return $setup;
         }
 

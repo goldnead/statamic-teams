@@ -21,7 +21,8 @@ class Users
     {
         return match (true) {
             $user === null => null,
-            $user instanceof StatamicUser => static::stringOrNull($user->id()),
+            // Statamic's users (file and Eloquent) are Authenticatable too;
+            // the identifier is their id.
             $user instanceof Authenticatable => static::stringOrNull($user->getAuthIdentifier()),
             is_int($user), is_string($user) => static::stringOrNull($user),
             is_object($user) && method_exists($user, 'id') => static::stringOrNull($user->id()),
@@ -68,7 +69,9 @@ class Users
             return null;
         }
 
-        $name = $found->name();
+        // Every user class Statamic ships extends `Statamic\Auth\User`; the
+        // contract alone declares no name.
+        $name = $found instanceof \Statamic\Auth\User ? $found->name() : null;
 
         return is_string($name) && $name !== '' ? $name : $found->email();
     }
