@@ -18,7 +18,7 @@ use Symfony\Component\HttpFoundation\Response;
  *
  * Thin on purpose: every decision is in the services, the same ones
  * statamic-app-api exposes as JSON. A form gets a redirect back with
- * `teams_success` or the error bag `teams`; a request that wants JSON gets
+ * `teams.success` or the error bag `teams` (read by `{{ teams:form_session }}`); a request that wants JSON gets
  * JSON, with the refusal's `reason`.
  */
 class TeamFormController extends Controller
@@ -27,7 +27,7 @@ class TeamFormController extends Controller
 
     public function create(Request $request): Response
     {
-        $data = $request->validate(['name' => ['required', 'string', 'max:191']]);
+        $data = $request->validateWithBag('teams', ['name' => ['required', 'string', 'max:191']]);
 
         return $this->run($request, function ($user) use ($data) {
             $team = $this->teams->create($data['name'], $user);
@@ -39,7 +39,7 @@ class TeamFormController extends Controller
 
     public function switch(Request $request): Response
     {
-        $data = $request->validate(['team' => ['required']]);
+        $data = $request->validateWithBag('teams', ['team' => ['required']]);
 
         return $this->run($request, function ($user) use ($data) {
             $team = $this->teamOrFail($data['team']);
@@ -51,7 +51,7 @@ class TeamFormController extends Controller
 
     public function join(Request $request): Response
     {
-        $data = $request->validate(['code' => ['required', 'string', 'max:64']]);
+        $data = $request->validateWithBag('teams', ['code' => ['required', 'string', 'max:64']]);
 
         return $this->run($request, function ($user) use ($data) {
             $membership = $this->teams->joinByCode($data['code'], $user);
@@ -81,7 +81,7 @@ class TeamFormController extends Controller
 
     public function update(Request $request, int $team): Response
     {
-        $data = $request->validate([
+        $data = $request->validateWithBag('teams', [
             'name' => ['sometimes', 'string', 'max:191'],
             'join_method' => ['sometimes', 'in:'.Team::JOIN_INVITATION_ONLY.','.Team::JOIN_CODE],
             'billing' => ['sometimes', 'array'],
@@ -97,7 +97,7 @@ class TeamFormController extends Controller
 
     public function invite(Request $request, int $team): Response
     {
-        $data = $request->validate([
+        $data = $request->validateWithBag('teams', [
             'email' => ['required', 'email', 'max:191'],
             'role' => ['nullable', 'string', 'max:64'],
         ]);
@@ -130,7 +130,7 @@ class TeamFormController extends Controller
 
     public function changeRole(Request $request, int $team, string $user): Response
     {
-        $data = $request->validate(['role' => ['required', 'string', 'max:64']]);
+        $data = $request->validateWithBag('teams', ['role' => ['required', 'string', 'max:64']]);
 
         return $this->run($request, function ($actor) use ($team, $user, $data) {
             $membership = $this->teams->changeRole($this->teamOrFail($team), $user, $data['role'], $actor);
@@ -187,7 +187,7 @@ class TeamFormController extends Controller
             return new JsonResponse(['message' => $message] + $data);
         }
 
-        return $this->back($request)->with('teams_success', $message);
+        return $this->back($request)->with('teams.success', $message);
     }
 
     /**

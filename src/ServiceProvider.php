@@ -36,7 +36,7 @@ class ServiceProvider extends AddonServiceProvider
         // The invitation page. The route switches in both files are read at
         // boot, so they are config only, not on the settings page.
         'web' => __DIR__.'/../routes/web.php',
-        // Front-end form posts under /!/teams/…
+        // Front-end form posts under /!/statamic-teams/…
         'actions' => __DIR__.'/../routes/actions.php',
     ];
 

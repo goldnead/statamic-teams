@@ -4,7 +4,8 @@ use Goldnead\Teams\Http\Controllers\Web\TeamFormController;
 use Illuminate\Support\Facades\Route;
 
 /*
- * Front-end form posts, under /!/teams/… (Statamic prefixes this file).
+ * Front-end form posts, under /!/statamic-teams/… (Statamic prefixes this
+ * file with the addon slug). Route names: `statamic.teams.forms.*`.
  * Every route needs a signed-in user; the controller checks, and the team
  * role decides inside the service. The antlers tags build these URLs.
  */
