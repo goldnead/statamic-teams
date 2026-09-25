@@ -109,9 +109,12 @@ class EntitlementsTest extends TestCase
         Entitlements::setLimits('chortarif', ['analyses' => ['value' => 2, 'period' => 'year']]);
 
         $this->assertSame(2, Entitlements::limit($this->userRef($ben), 'analyses'));
-        $this->assertTrue(Entitlements::consume($this->userRef($olga), 'analyses'));
-        $this->assertTrue(Entitlements::consume($this->userRef($ben), 'analyses'));
-        $this->assertFalse(Entitlements::consume($this->userRef($ben), 'analyses'), 'The team counter is full, whoever books.');
+        // consume() returns a receipt on success (entitlements ≥ 8f9be46), null when refused.
+        $first = Entitlements::consume($this->userRef($olga), 'analyses');
+        $this->assertNotNull($first);
+        $this->assertSame('team:'.$team->id, $first->holder()->key(), 'Booked at the team, not at the person.');
+        $this->assertNotNull(Entitlements::consume($this->userRef($ben), 'analyses'));
+        $this->assertNull(Entitlements::consume($this->userRef($ben), 'analyses'), 'The team counter is full, whoever books.');
 
         $quota = Entitlements::quota($this->userRef($ben), 'analyses');
         $this->assertSame(0, $quota->remaining());
