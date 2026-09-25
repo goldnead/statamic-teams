@@ -20,9 +20,9 @@ const props = defineProps([
 
 const siblings = computed(() => [
     { key: 'email_templates', label: __('Email templates'), text: __('Every mail of this addon is a template there.') },
-    { key: 'automations', label: __('Automations'), text: __('Every event below is a trigger in the flow builder, group "Teams".') },
-    { key: 'webhook_manager', label: __('Webhook Manager'), text: __('Every event below is a webhook trigger.') },
-    { key: 'activity', label: __('Activity'), text: __('Every event is written to the activity log, subject team.') },
+    { key: 'automations', label: __('teams::cp.automations'), text: __('Every event below is a trigger in the flow builder, group "Teams".') },
+    { key: 'webhook_manager', label: __('teams::cp.webhook_manager'), text: __('Every event below is a webhook trigger.') },
+    { key: 'activity', label: __('teams::cp.activity'), text:__('Every event is written to the activity log, subject team.') },
 ]);
 
 const missingTemplates = computed(() => props.events.some((e) => e.mail && ! e.mail.customised));
@@ -64,13 +64,13 @@ function installTemplates() {
             </Card>
         </Panel>
 
-        <Panel :heading="__('Events')" :subheading="__('Handle, mail, and who listens. Counts include enabled flows and webhooks only.')">
+        <Panel :heading="__('teams::cp.events')" :subheading="__('Handle, mail, and who listens. Counts include enabled flows and webhooks only.')">
             <Card>
             <Table>
                 <TableColumns>
                     <TableColumn>{{ __('Event') }}</TableColumn>
                     <TableColumn>{{ __('Mail') }}</TableColumn>
-                    <TableColumn class="text-end">{{ __('Automations') }}</TableColumn>
+                    <TableColumn class="text-end">{{ __('teams::cp.automations') }}</TableColumn>
                     <TableColumn class="text-end">{{ __('Webhooks') }}</TableColumn>
                 </TableColumns>
                 <TableRows>

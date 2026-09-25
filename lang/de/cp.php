@@ -10,4 +10,8 @@ return [
     'joined' => 'Beigetreten',
     'expires' => 'Läuft ab',
     'owner_unknown' => 'Zu dieser E-Mail-Adresse gibt es keinen Benutzer.',
+    'events' => 'Ereignisse',
+    'automations' => 'Automationen',
+    'webhook_manager' => 'Webhook-Manager',
+    'activity' => 'Aktivität',
 ];

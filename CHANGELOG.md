@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- `lang/de.json` no longer translates "Events", "Activity", "Automations" and "Webhook Manager" globally (it renamed the Events addon to "Ereignisse" in the addon list). The wiring page uses keys under `teams::cp`.
+
 ## 0.1.0 — 2026-09-25
 
 ### Added

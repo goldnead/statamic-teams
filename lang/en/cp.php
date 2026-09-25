@@ -10,4 +10,8 @@ return [
     'joined' => 'Joined',
     'expires' => 'Expires',
     'owner_unknown' => 'There is no user with this email address.',
+    'events' => 'Events',
+    'automations' => 'Automations',
+    'webhook_manager' => 'Webhook Manager',
+    'activity' => 'Activity',
 ];
