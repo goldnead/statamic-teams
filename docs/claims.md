@@ -24,6 +24,9 @@ based on matching names or email addresses. Publishing remains the host's separa
 `TeamClaim` contains private evidence. Its normal array/JSON representation hides claimant,
 contact, justification and decision actor/note. Hosts still need authorized moderation views,
 Accounts export/erasure integration and a retention policy before exposing the workflow.
+Rejected claims can be submitted again with additional evidence. Hosts must add submission
+rate limits and a repeat-request policy before exposing public endpoints; pending deduplication
+does not prevent abuse through repeated rejected requests.
 
 `ClaimRequested`, `ClaimDecided`, `TeamCreated` and `MemberJoined` dispatch after the enclosing
 database transaction commits. Failed approval must leave no team, member, binding or decision
