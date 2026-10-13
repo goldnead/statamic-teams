@@ -3,6 +3,7 @@
 namespace Goldnead\Teams;
 
 use Goldnead\BrandContext\Settings\SettingsRegistry;
+use Goldnead\Teams\Contracts\ClaimPolicy;
 use Goldnead\Teams\Exceptions\TeamsException;
 use Goldnead\Teams\Http\Middleware\EnsureTeamMembership;
 use Goldnead\Teams\Http\Middleware\EnsureTeamWritable;
@@ -14,6 +15,7 @@ use Goldnead\Teams\Integrations\Payments\TeamBuyer;
 use Goldnead\Teams\Integrations\WebhookManager\WebhookManagerBridge;
 use Goldnead\Teams\Models\Team;
 use Goldnead\Teams\Services\Authorizer;
+use Goldnead\Teams\Services\ClaimService;
 use Goldnead\Teams\Services\ImportService;
 use Goldnead\Teams\Services\InvitationService;
 use Goldnead\Teams\Services\JoinService;
@@ -21,6 +23,7 @@ use Goldnead\Teams\Services\MembershipService;
 use Goldnead\Teams\Services\RoleService;
 use Goldnead\Teams\Services\TeamService;
 use Goldnead\Teams\Support\CurrentTeam;
+use Goldnead\Teams\Support\DenyClaimPolicy;
 use Goldnead\Teams\Support\GlobalRoleStore;
 use Goldnead\Teams\Support\JoinCodes;
 use Goldnead\Teams\Support\JoinGuards;
@@ -72,6 +75,7 @@ class ServiceProvider extends AddonServiceProvider
         parent::register();
 
         $this->mergeConfigFrom(__DIR__.'/../config/teams.php', 'teams');
+        $this->app->bindIf(ClaimPolicy::class, DenyClaimPolicy::class);
 
         $langPath = __DIR__.'/../lang';
 
@@ -88,6 +92,7 @@ class ServiceProvider extends AddonServiceProvider
         foreach ([
             Roles::class, JoinCodes::class, JoinGuards::class, Authorizer::class,
             TeamService::class, MembershipService::class, InvitationService::class,
+            ClaimService::class,
             JoinService::class, ImportService::class, TeamsManager::class,
             TeamEntitlements::class, TeamBuyer::class, MailTemplates::class,
             AutomationsBridge::class, WebhookManagerBridge::class,

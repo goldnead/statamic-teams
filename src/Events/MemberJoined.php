@@ -5,8 +5,9 @@ namespace Goldnead\Teams\Events;
 use Goldnead\Teams\Models\Membership;
 use Goldnead\Teams\Models\Team;
 use Goldnead\Teams\Support\Users;
+use Illuminate\Contracts\Events\ShouldDispatchAfterCommit;
 
-class MemberJoined extends TeamEvent
+class MemberJoined extends TeamEvent implements ShouldDispatchAfterCommit
 {
     public function __construct(
         public Team $team,
