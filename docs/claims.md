@@ -22,8 +22,26 @@ claimant again and checks eligibility before creating a team. There is no inferr
 based on matching names or email addresses. Publishing remains the host's separate decision.
 
 `TeamClaim` contains private evidence. Its normal array/JSON representation hides claimant,
-contact, justification and decision actor/note. Hosts still need authorized moderation views,
-Accounts export/erasure integration and a retention policy before exposing the workflow.
+contact, justification and decision actor/note. When `goldnead/statamic-accounts` is installed,
+the addon conditionally registers a `team_claims` export and eraser. The export separates
+applications from reviews. Applications include the claimant's resource, key, site, status,
+team, timestamps, justification and contact. Reviews include the reviewer's resource, key,
+site, status, timestamps and own decision note. It does not export internal account IDs,
+reviewer identity to claimants, claimant identity or evidence to reviewers, or the internal
+pending-deduplication key.
+
+Account deletion clears claimant IDs, contact details, justifications, pending keys and
+decision notes from the claimant's rows. Pending claims become `withdrawn`; approved and
+rejected statuses stay as recorded. Reviews authored by the deleted reviewer lose their
+reviewer ID and decision note. Resource, team, status and timestamps remain as claim history,
+so this removes direct identifiers and free-form evidence but does not promise that retained
+historical relationships cannot be linked by other information. The eraser does not remove
+teams or memberships; Accounts' built-in Teams contributor owns those records. The migration's
+down step refuses to run while anonymized rows have a null claimant ID, so rollback requires
+those rows to be resolved first.
+
+The claims workflow still exposes no public routes or Control Panel screen. Hosts need
+authorized moderation views and a retention policy before exposing it.
 Rejected claims can be submitted again with additional evidence. Hosts must add submission
 rate limits and a repeat-request policy before exposing public endpoints; pending deduplication
 does not prevent abuse through repeated rejected requests.

@@ -14,6 +14,8 @@ use Goldnead\Teams\Integrations\Entitlements\TeamEntitlements;
 use Goldnead\Teams\Integrations\Payments\TeamBuyer;
 use Goldnead\Teams\Integrations\WebhookManager\WebhookManagerBridge;
 use Goldnead\Teams\Models\Team;
+use Goldnead\Teams\PersonalData\TeamClaimsContributor;
+use Goldnead\Teams\PersonalData\TeamClaimsEraser;
 use Goldnead\Teams\Services\Authorizer;
 use Goldnead\Teams\Services\ClaimService;
 use Goldnead\Teams\Services\ImportService;
@@ -123,6 +125,14 @@ class ServiceProvider extends AddonServiceProvider
         }
 
         $this->bootMailTemplates();
+
+        if (interface_exists('Goldnead\\Accounts\\Contracts\\ContributesPersonalData')) {
+            $this->app->tag([TeamClaimsContributor::class], 'accounts.personal-data');
+        }
+
+        if (interface_exists('Goldnead\\Accounts\\Contracts\\ErasesPersonalData')) {
+            $this->app->tag([TeamClaimsEraser::class], 'accounts.personal-data-erasers');
+        }
     }
 
     /**

@@ -15,7 +15,7 @@ use Statamic\Facades\User as UserRepository;
  * @property string $resource_type
  * @property string $resource_key
  * @property string $site
- * @property string $claimant_id
+ * @property string|null $claimant_id
  * @property string $justification
  * @property string $contact
  * @property string $status
@@ -35,6 +35,8 @@ class TeamClaim extends Model
     public const APPROVED = 'approved';
 
     public const REJECTED = 'rejected';
+
+    public const WITHDRAWN = 'withdrawn';
 
     protected $table = 'team_claims';
 
