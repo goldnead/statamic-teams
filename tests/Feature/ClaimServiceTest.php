@@ -47,6 +47,7 @@ class ClaimServiceTest extends TestCase
 
         $this->assertSame($first->id, $second->id);
         $this->assertSame(1, TeamClaim::query()->count());
+        $this->assertSame(1, DB::table('team_claim_outbox')->where('kind', 'requested')->count());
         $this->assertArrayNotHasKey('justification', $first->toArray());
         $this->assertArrayNotHasKey('contact', $first->toArray());
     }
@@ -80,6 +81,12 @@ class ClaimServiceTest extends TestCase
         $this->assertSame(TeamClaim::APPROVED, $approved->status);
         $this->assertSame((string) $claimant->id(), (string) Team::findOrFail($approved->team_id)->owner_id);
         $this->assertSame($approved->team_id, DB::table('claim_targets')->value('team_id'));
+        $outbox = DB::table('team_claim_outbox')->where('claim_id', $claim->id)->orderBy('id')->get();
+        $this->assertSame(['requested', 'decided'], $outbox->pluck('kind')->all());
+        $this->assertSame(['pending', 'approved'], $outbox->pluck('status')->all());
+        $this->assertSame([0, 0], $outbox->pluck('attempts')->all());
+        $this->assertSame([null, null], $outbox->pluck('last_error_code')->all());
+        $this->assertTrue($outbox->every(fn ($row) => $row->available_at !== null));
     }
 
     public function test_reject_requires_a_reason_and_decision_cannot_be_replayed(): void
@@ -126,6 +133,7 @@ class ClaimServiceTest extends TestCase
         $this->assertSame(0, Team::query()->count());
         $this->assertSame(0, DB::table('team_members')->count());
         $this->assertSame(TeamClaim::PENDING, $claim->fresh()->status);
+        $this->assertSame(1, DB::table('team_claim_outbox')->where('claim_id', $claim->id)->count());
         $this->assertNull(DB::table('claim_targets')->value('team_id'));
         Event::assertNotDispatched(TeamCreated::class);
         Event::assertNotDispatched(MemberJoined::class);
@@ -134,6 +142,7 @@ class ClaimServiceTest extends TestCase
 
     public function test_bound_resource_and_missing_claimant_fail_closed(): void
     {
+        config(['teams.claims.limits.rejected_cooldown_minutes' => 0]);
         $claimant = $this->makeUser('bound@example.test');
         $reviewer = $this->makeUser('bound-reviewer@example.test');
         $claim = $this->requestAs($claimant);
@@ -157,6 +166,82 @@ class ClaimServiceTest extends TestCase
         } catch (ClaimException $exception) {
             $this->assertSame(ClaimException::CONFLICT, $exception->reason);
         }
+    }
+
+    public function test_account_limit_counts_claims_across_resources_and_pending_duplicate_consumes_no_extra_quota(): void
+    {
+        config(['teams.claims.limits' => [
+            'max_per_account' => 1,
+            'window_minutes' => 1440,
+            'rejected_cooldown_minutes' => 0,
+        ]]);
+        $claimant = $this->makeUser('limit@example.test');
+        $service = app(ClaimService::class);
+        $first = $service->request('choir', 'choir-1', 'main', $claimant, 'I lead this choir and can verify the public listing.', 'claim@example.test');
+        $duplicate = $service->request('choir', 'choir-1', 'main', $claimant, 'Different text does not replace pending evidence.', 'different@example.test');
+        $this->assertSame($first->id, $duplicate->id);
+
+        DB::table('claim_targets')->insert(['key' => 'choir-2', 'site' => 'main', 'name' => 'Choir Two']);
+        try {
+            $service->request('choir', 'choir-2', 'main', $claimant, 'Another resource worth claiming.', 'claim@example.test');
+            $this->fail('A second pending claim should exceed the account limit.');
+        } catch (ClaimException $exception) {
+            $this->assertSame(ClaimException::RATE_LIMITED, $exception->reason);
+        }
+        $this->assertSame(1, TeamClaim::query()->count());
+    }
+
+    public function test_rejection_cooldown_is_scoped_to_site_and_expires(): void
+    {
+        config(['teams.claims.limits' => [
+            'max_per_account' => 0,
+            'window_minutes' => 0,
+            'rejected_cooldown_minutes' => 60,
+        ]]);
+        $claimant = $this->makeUser('cooldown@example.test');
+        $reviewer = $this->makeUser('cooldown-reviewer@example.test');
+        $claim = $this->requestAs($claimant);
+        app(ClaimService::class)->reject($claim->id, $reviewer, 'The evidence did not match the official page.');
+
+        try {
+            $this->requestAs($claimant);
+            $this->fail('A rejection should start the cooldown for the same site.');
+        } catch (ClaimException $exception) {
+            $this->assertSame(ClaimException::COOLDOWN, $exception->reason);
+        }
+
+        DB::table('claim_targets')->insert(['key' => 'choir-1', 'site' => 'secondary', 'name' => 'Choir One']);
+        $crossSite = app(ClaimService::class)->request('choir', 'choir-1', 'secondary', $claimant, 'A different-site request with enough detail.', 'claim@example.test');
+        $this->assertSame('secondary', $crossSite->site);
+
+        $this->travel(61)->minutes();
+        $afterExpiry = app(ClaimService::class)->request('choir', 'choir-1', 'main', $claimant, 'A request after the cooldown period has expired.', 'claim@example.test');
+        $this->assertSame(TeamClaim::PENDING, $afterExpiry->status);
+    }
+
+    public function test_rejection_closes_a_claim_whose_adapter_is_no_longer_registered(): void
+    {
+        $claimant = $this->makeUser('unregistered@example.test');
+        $reviewer = $this->makeUser('unregistered-reviewer@example.test');
+        $claim = $this->requestAs($claimant);
+        config(['teams.claims.resources' => []]);
+
+        $rejected = app(ClaimService::class)->reject($claim->id, $reviewer, 'The directory no longer lists this choir.');
+
+        $this->assertSame(TeamClaim::REJECTED, $rejected->status);
+        $this->assertSame(2, DB::table('team_claim_outbox')->where('claim_id', $claim->id)->count());
+    }
+
+    public function test_limit_and_outbox_migration_rolls_back_cleanly(): void
+    {
+        $this->artisan('migrate:rollback', [
+            '--path' => realpath(__DIR__.'/../../database/migrations/2026_10_13_000003_create_team_claim_limit_locks_and_outbox.php'),
+            '--realpath' => true,
+        ])->assertSuccessful();
+
+        $this->assertFalse(Schema::hasTable('team_claim_limit_locks'));
+        $this->assertFalse(Schema::hasTable('team_claim_outbox'));
+        $this->assertTrue(Schema::hasTable('team_claims'));
     }
 
     protected function requestAs(User $actor): TeamClaim

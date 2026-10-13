@@ -16,6 +16,10 @@ class ClaimException extends RuntimeException
 
     public const RESOURCE_UNAVAILABLE = 'claim_resource_unavailable';
 
+    public const RATE_LIMITED = 'rate_limited';
+
+    public const COOLDOWN = 'cooldown';
+
     public function __construct(public readonly string $reason, ?string $message = null)
     {
         parent::__construct($message ?? $reason);

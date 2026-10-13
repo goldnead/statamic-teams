@@ -56,6 +56,11 @@ class TeamClaimsPersonalDataTest extends TestCase
         $reviewer = $this->makeUser('reviewer@example.test');
         $pendingId = $this->insertClaim((string) $claimant->id(), null, 'pending');
         $decidedId = $this->insertClaim((string) $claimant->id(), (string) $reviewer->id(), 'approved');
+        DB::table('team_claim_limit_locks')->insert(['claimant_id' => (string) $claimant->id()]);
+        DB::table('team_claim_outbox')->insert([
+            ['claim_id' => $pendingId, 'kind' => 'requested', 'status' => 'pending', 'created_at' => now()],
+            ['claim_id' => $decidedId, 'kind' => 'requested', 'status' => 'pending', 'created_at' => now()],
+        ]);
 
         $result = (new TeamClaimsEraser)->erase(User::find($claimant->id()));
 
@@ -73,6 +78,8 @@ class TeamClaimsPersonalDataTest extends TestCase
         $this->assertNull($decided->decision_note);
         $this->assertSame('approved', $decided->status);
         $this->assertNotEmpty($decided->resource_key);
+        $this->assertSame(0, DB::table('team_claim_outbox')->whereIn('claim_id', [$pendingId, $decidedId])->count());
+        $this->assertSame(0, DB::table('team_claim_limit_locks')->where('claimant_id', (string) $claimant->id())->count());
 
         (new TeamClaimsEraser)->erase(User::find($reviewer->id()));
         $this->assertNull(DB::table('team_claims')->find($decidedId)->decision_by);

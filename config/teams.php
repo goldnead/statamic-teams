@@ -244,6 +244,11 @@ return [
     'claims' => [
         'resources' => [],
         'policy' => DenyClaimPolicy::class,
+        'limits' => [
+            'max_per_account' => 3,
+            'window_minutes' => 1440,
+            'rejected_cooldown_minutes' => 1440,
+        ],
     ],
 
 ];

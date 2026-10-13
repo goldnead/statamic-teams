@@ -40,6 +40,14 @@ class TeamClaimsEraser implements ErasesPersonalData
         $id = (string) $user->getAuthIdentifier();
         $applications = DB::table('team_claims')->where('claimant_id', $id);
         $applicationCount = (clone $applications)->count();
+        if (Schema::hasTable('team_claim_outbox')) {
+            DB::table('team_claim_outbox')
+                ->whereIn('claim_id', (clone $applications)->select('id'))
+                ->delete();
+        }
+        if (Schema::hasTable('team_claim_limit_locks')) {
+            DB::table('team_claim_limit_locks')->where('claimant_id', $id)->delete();
+        }
         $applications->update([
             'claimant_id' => null,
             'justification' => '',

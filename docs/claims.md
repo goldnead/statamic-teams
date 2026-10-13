@@ -15,7 +15,15 @@ perform external calls or mutate flat files during approval.
 per resource, site and claimant. `approve(id, reviewer, note)` creates an owned team and binds
 it atomically; `reject(id, reviewer, note)` requires a reason and can close a pending claim even
 when its resource is no longer available. Self-review and replaying a decision are rejected.
-Resource availability is rechecked under a row lock when approving.
+Resource availability is rechecked under a row lock when approving. Locks are acquired in
+resource, claimant-account, claim order. The account lock serializes quota checks across
+different resources.
+
+`teams.claims.limits` defaults to `max_per_account: 3`, `window_minutes: 1440` and
+`rejected_cooldown_minutes: 1440`. Each value must be a non-negative integer; zero disables
+that limit. The request limit counts all claims for the account created in the rolling window.
+The rejection cooldown applies to the same resource type, key and site. A matching pending
+claim is returned unchanged before either limit is checked.
 
 The host policy must check the actual account and reviewer permission. Approval resolves the
 claimant again and checks eligibility before creating a team. There is no inferred ownership
@@ -40,15 +48,23 @@ teams or memberships; Accounts' built-in Teams contributor owns those records. T
 down step refuses to run while anonymized rows have a null claimant ID, so rollback requires
 those rows to be resolved first.
 
+The durable, privacy-minimal `team_claim_outbox` has `id`, `claim_id` (cascade delete), `kind`
+(`requested` or `decided`), `status` (status snapshot), `created_at`, `available_at` (defaults
+to now), `attempts` (defaults to 0), nullable `last_error_code` (at most 64 characters) and
+nullable `processed_at`, with one row per claim and kind. Request and decision rows are inserted
+in their claim transactions. The consumer columns let a delivery job postpone blocked or erroring
+rows (push `available_at` forward, count `attempts`, record `last_error_code`) instead of
+starving on them. Erasure removes outbox rows for the erased claimant before anonymizing claim
+history, and removes the claimant's account-lock row. No delivery consumer is included.
+
 The claims workflow still exposes no public routes or Control Panel screen. Hosts need
 authorized moderation views and a retention policy before exposing it.
-Rejected claims can be submitted again with additional evidence. Hosts must add submission
-rate limits and a repeat-request policy before exposing public endpoints; pending deduplication
-does not prevent abuse through repeated rejected requests.
+Rejected claims can be submitted again with additional evidence after the configured cooldown.
+Hosts should keep the limits enabled before exposing public endpoints.
 
 `ClaimRequested`, `ClaimDecided`, `TeamCreated` and `MemberJoined` dispatch after the enclosing
 database transaction commits. Failed approval must leave no team, member, binding or decision
-event. After-commit dispatch is not a durable notification outbox: reliable user notifications
-and recipient checks remain integration work, with no delivery promise from these services.
+event. The outbox records durable lifecycle snapshots only; reliable user notifications and
+recipient checks remain integration work, with no delivery promise from these services.
 
 This change is based on v0.3.1 in `codex/chorgesucht-claims`. No new release is published.

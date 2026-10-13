@@ -7,6 +7,7 @@ use Goldnead\Teams\Contracts\ClaimResource;
 use Goldnead\Teams\Events\ClaimDecided;
 use Goldnead\Teams\Events\ClaimRequested;
 use Goldnead\Teams\Exceptions\ClaimException;
+use Goldnead\Teams\Models\ClaimOutbox;
 use Goldnead\Teams\Models\TeamClaim;
 use Goldnead\Teams\Support\Users;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -16,7 +17,7 @@ use Statamic\Facades\User as UserRepository;
 
 class ClaimService
 {
-    public function __construct(protected TeamService $teams) {}
+    public function __construct(protected TeamService $teams, protected ClaimLimitService $limits) {}
 
     public function request(string $type, string $key, string $site, User $actor, string $justification, string $contact): TeamClaim
     {
@@ -36,13 +37,15 @@ class ClaimService
         try {
             $claim = DB::transaction(function () use ($resource, $type, $key, $site, $claimantId, $justification, $contact, $pendingKey) {
                 $resource->lock($key, $site);
+                $this->limits->lockAccount($claimantId);
 
                 $pending = TeamClaim::query()->where('pending_key', $pendingKey)->first();
                 if ($pending !== null) {
                     return $pending;
                 }
 
-                return TeamClaim::query()->create([
+                $this->limits->assertCanRequest($claimantId, $type, $key, $site);
+                $claim = TeamClaim::query()->create([
                     'resource_type' => $type,
                     'resource_key' => $key,
                     'site' => $site,
@@ -52,6 +55,15 @@ class ClaimService
                     'status' => TeamClaim::PENDING,
                     'pending_key' => $pendingKey,
                 ]);
+
+                DB::table('team_claim_outbox')->insert([
+                    'claim_id' => $claim->getKey(),
+                    'kind' => ClaimOutbox::REQUESTED,
+                    'status' => TeamClaim::PENDING,
+                    'created_at' => now(),
+                ]);
+
+                return $claim;
             });
         } catch (UniqueConstraintViolationException $exception) {
             // A pending_key unique constraint closes races on databases where
@@ -100,14 +112,31 @@ class ClaimService
         $reviewerId = Users::key($reviewer) ?? throw new ClaimException(ClaimException::INVALID, 'Reviewer has no stable user id.');
 
         return DB::transaction(function () use ($id, $snapshot, $resource, $reviewerId, $note, $approve) {
-            // Approvals always lock resource then claim. Rejection only locks
-            // the claim because it never mutates a resource, so it can still
-            // close stale requests after a competing claim binds the target.
-            if ($approve) {
-                if (! $resource instanceof ClaimResource) {
-                    throw new \LogicException('An approval requires a claim resource adapter.');
+            // Approvals always lock resource then claimant-account, claim.
+            // Rejections take the same locks in the same order but may skip
+            // the resource lock: they never mutate a resource, so a claim
+            // whose adapter is gone or whose target is unavailable can still
+            // be closed.
+            if ($resource === null) {
+                try {
+                    $resource = $this->resource($snapshot->resource_type);
+                } catch (ClaimException $exception) {
+                    if ($exception->reason !== ClaimException::UNKNOWN_RESOURCE) {
+                        throw $exception;
+                    }
                 }
-                $resource->lock($snapshot->resource_key, $snapshot->site);
+            }
+            if ($resource !== null) {
+                try {
+                    $resource->lock($snapshot->resource_key, $snapshot->site);
+                } catch (ClaimException $exception) {
+                    if ($approve || $exception->reason !== ClaimException::RESOURCE_UNAVAILABLE) {
+                        throw $exception;
+                    }
+                }
+            }
+            if (is_string($snapshot->claimant_id) && $snapshot->claimant_id !== '') {
+                $this->limits->lockAccount($snapshot->claimant_id);
             }
             $claim = TeamClaim::query()->lockForUpdate()->find($id)
                 ?? throw new ClaimException(ClaimException::NOT_FOUND);
@@ -117,6 +146,9 @@ class ClaimService
             }
 
             if ($approve) {
+                if (! $resource instanceof ClaimResource) {
+                    throw new \LogicException('An approval requires a claim resource adapter.');
+                }
                 $claimant = UserRepository::find($claim->claimant_id);
                 if (! $claimant instanceof User) {
                     throw new ClaimException(ClaimException::CONFLICT, 'The claimant account no longer exists.');
@@ -137,6 +169,13 @@ class ClaimService
             $claim->decided_at = now();
             $claim->pending_key = null;
             $claim->save();
+
+            DB::table('team_claim_outbox')->insert([
+                'claim_id' => $claim->getKey(),
+                'kind' => ClaimOutbox::DECIDED,
+                'status' => $claim->status,
+                'created_at' => now(),
+            ]);
 
             return $claim;
         });
