@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.4.0 — 2026-10-15
+
+### Added: moderated resource claims
+
+- A team can claim a host resource (for example a directory profile) through `ClaimService`. Claiming is opt-in: the host binds its resource adapters in `teams.claims.resources` and a policy in `teams.claims.policy`; the default `DenyClaimPolicy` denies everything. The binding of team and resource is atomic.
+- Per-account submission limits (`teams.claims.limits`: `max_per_account`, `window_minutes`, `rejected_cooldown_minutes`), enforced through `team_claim_limit_locks`.
+- A persistent claim outbox (`team_claim_outbox`), so a claim decision is not lost between the database write and the notification.
+- Claim data joins the Accounts personal data export and erasure (`TeamClaimsContributor`, `TeamClaimsEraser`).
+- New migrations: `team_claims`, nullable claimant, limit locks and outbox.
+
 ## 0.3.1 — 2026-09-26
 
 Findings from the review of 0.3.0.
