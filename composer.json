@@ -28,6 +28,7 @@
         "statamic/cms": "^6.0"
     },
     "require-dev": {
+        "goldnead/statamic-accounts": "^0.5",
         "goldnead/statamic-brand-context": "^1.13",
         "goldnead/statamic-email-templates": "^2.8",
         "goldnead/statamic-entitlements": "^1.5",

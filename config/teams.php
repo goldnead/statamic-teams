@@ -1,5 +1,7 @@
 <?php
 
+use Goldnead\Teams\Support\DenyClaimPolicy;
+
 return [
 
     /*
@@ -236,6 +238,17 @@ return [
         'activity' => true,
         'entitlements' => true,
         'email_templates' => true,
+    ],
+
+    // Claiming is opt-in. Hosts must bind both resource adapters and a policy.
+    'claims' => [
+        'resources' => [],
+        'policy' => DenyClaimPolicy::class,
+        'limits' => [
+            'max_per_account' => 3,
+            'window_minutes' => 1440,
+            'rejected_cooldown_minutes' => 1440,
+        ],
     ],
 
 ];
