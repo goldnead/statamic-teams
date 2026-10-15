@@ -77,7 +77,11 @@ class ServiceProvider extends AddonServiceProvider
         parent::register();
 
         $this->mergeConfigFrom(__DIR__.'/../config/teams.php', 'teams');
-        $this->app->bindIf(ClaimPolicy::class, DenyClaimPolicy::class);
+        $this->app->bindIf(ClaimPolicy::class, function ($app) {
+            $class = $app['config']->get('teams.claims.policy') ?: DenyClaimPolicy::class;
+
+            return $app->make($class);
+        });
 
         $langPath = __DIR__.'/../lang';
 

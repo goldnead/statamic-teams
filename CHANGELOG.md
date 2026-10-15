@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.1 — 2026-10-15
+
+### Fixed
+
+- `teams.claims.policy` is now actually read: the `ClaimPolicy` binding resolves the configured class (fallback `DenyClaimPolicy`). A binding set by the host still takes precedence.
+
 ## 0.4.0 — 2026-10-15
 
 ### Added: moderated resource claims
