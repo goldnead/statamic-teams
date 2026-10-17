@@ -64,6 +64,18 @@ class Settings implements ProvidesSettings
     }
 
     /**
+     * Unter welchem Eintrag der eigenen CP-Navigation der Unterpunkt "Settings"
+     * hängt: [Sektion, Name], exakt wie in Nav::extend. Optional, gelesen von
+     * der Einstellungs-Schicht in statamic-brand-context (ab 1.16).
+     *
+     * @return array{0: string, 1: string}
+     */
+    public static function settingsNavParent(): array
+    {
+        return ['Users', __('teams::messages.nav')];
+    }
+
+    /**
      * The translation key is the config path with its dots flattened: a dot
      * in a translation key is a path separator.
      *
