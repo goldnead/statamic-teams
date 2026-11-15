@@ -35,6 +35,18 @@ class Membership extends Model
         'joined_at' => 'datetime',
     ];
 
+    /**
+     * The additional roles and single permissions of a member go with the
+     * membership: a member who leaves and comes back starts clean.
+     */
+    protected static function booted(): void
+    {
+        static::deleted(function (Membership $membership) {
+            MemberRole::query()->where('team_id', $membership->team_id)->where('user_id', $membership->user_id)->delete();
+            MemberPermission::query()->where('team_id', $membership->team_id)->where('user_id', $membership->user_id)->delete();
+        });
+    }
+
     /** @return BelongsTo<Team, $this> */
     public function team(): BelongsTo
     {

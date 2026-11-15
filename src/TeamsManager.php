@@ -11,6 +11,7 @@ use Goldnead\Teams\Models\Team;
 use Goldnead\Teams\Services\ImportService;
 use Goldnead\Teams\Services\InvitationService;
 use Goldnead\Teams\Services\JoinService;
+use Goldnead\Teams\Services\MemberAccessService;
 use Goldnead\Teams\Services\MembershipService;
 use Goldnead\Teams\Services\RoleService;
 use Goldnead\Teams\Services\TeamService;
@@ -240,6 +241,64 @@ class TeamsManager
     public function roleOf(mixed $user, Team $team): ?string
     {
         return $team->roleOf($user);
+    }
+
+    /**
+     * Give a member a further role next to the main one. Needs `change roles`
+     * and every permission of the role; the owner role is never an additional
+     * role. Idempotent.
+     */
+    public function addRole(Team $team, mixed $user, string $role, mixed $actor = null): Membership
+    {
+        return app(MemberAccessService::class)->addRole($team, $user, $role, $actor);
+    }
+
+    /** Take an additional role away again (the main role is changed with `changeRole()`). */
+    public function removeRole(Team $team, mixed $user, string $role, mixed $actor = null): Membership
+    {
+        return app(MemberAccessService::class)->removeRole($team, $user, $role, $actor);
+    }
+
+    /** Give a member one permission of their own, independent of any role. Idempotent. */
+    public function grantPermission(Team $team, mixed $user, string $permission, mixed $actor = null): Membership
+    {
+        return app(MemberAccessService::class)->grantPermission($team, $user, $permission, $actor);
+    }
+
+    public function revokePermission(Team $team, mixed $user, string $permission, mixed $actor = null): Membership
+    {
+        return app(MemberAccessService::class)->revokePermission($team, $user, $permission, $actor);
+    }
+
+    /**
+     * Every role of a member: the main role first, then the additional ones.
+     *
+     * @return list<string>
+     */
+    public function rolesOf(mixed $user, Team $team): array
+    {
+        return app(MemberAccessService::class)->rolesOf($team, $user);
+    }
+
+    /**
+     * What a member may do in a team, from all roles and their own
+     * permissions (`['*']` for everything). `can()` answers from the same.
+     *
+     * @return list<string>
+     */
+    public function permissionsOf(mixed $user, Team $team): array
+    {
+        return app(MemberAccessService::class)->permissionsOf($team, $user);
+    }
+
+    /**
+     * Only the permissions granted to the member alone.
+     *
+     * @return list<string>
+     */
+    public function ownPermissionsOf(mixed $user, Team $team): array
+    {
+        return app(MemberAccessService::class)->ownPermissionsOf($team, $user);
     }
 
     /**

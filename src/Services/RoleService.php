@@ -9,6 +9,7 @@ use Goldnead\Teams\Events\RoleUpdated;
 use Goldnead\Teams\Exceptions\TeamsException;
 use Goldnead\Teams\Models\GlobalRole;
 use Goldnead\Teams\Models\Invitation;
+use Goldnead\Teams\Models\MemberRole;
 use Goldnead\Teams\Models\Membership;
 use Goldnead\Teams\Models\Team;
 use Goldnead\Teams\Models\TeamRole;
@@ -302,6 +303,8 @@ class RoleService
     public function usage(string $handle, ?Team $team = null, bool $lock = false): array
     {
         $members = $this->holders(Membership::query(), $handle, $team);
+        // A member holding the role as an additional role counts as a holder.
+        $extra = $this->holders(MemberRole::query(), $handle, $team);
         $invitations = $this->holders(Invitation::query()->pending(), $handle, $team);
 
         if ($lock) {
@@ -310,12 +313,13 @@ class RoleService
             // for the write anyway.)
             return [
                 // Fetched, not counted in SQL: a lock needs the rows.
-                'members' => count($members->lockForUpdate()->pluck('team_members.id')->all()),
+                'members' => count($members->lockForUpdate()->pluck('team_members.id')->all())
+                    + count($extra->lockForUpdate()->pluck('team_member_roles.id')->all()),
                 'invitations' => count($invitations->lockForUpdate()->pluck('team_invitations.id')->all()),
             ];
         }
 
-        return ['members' => $members->count(), 'invitations' => $invitations->count()];
+        return ['members' => $members->count() + $extra->count(), 'invitations' => $invitations->count()];
     }
 
     /**
@@ -355,8 +359,25 @@ class RoleService
                 ->whereColumn('team_roles.handle', 'team_members.role'));
         }
 
-        return $query->groupBy('role')->selectRaw('role, count(*) as total')->pluck('total', 'role')
+        $counts = $query->groupBy('role')->selectRaw('role, count(*) as total')->pluck('total', 'role')
             ->map(fn ($total) => (int) $total)->all();
+
+        // Additional roles count as holders as well.
+        $extra = MemberRole::query();
+
+        if ($team !== null) {
+            $extra->where('team_id', $team->id);
+        } else {
+            $extra->whereNotExists(fn ($q) => $q->selectRaw('1')->from('team_roles')
+                ->whereColumn('team_roles.team_id', 'team_member_roles.team_id')
+                ->whereColumn('team_roles.handle', 'team_member_roles.role'));
+        }
+
+        foreach ($extra->groupBy('role')->selectRaw('role, count(*) as total')->pluck('total', 'role') as $role => $total) {
+            $counts[$role] = ($counts[$role] ?? 0) + (int) $total;
+        }
+
+        return $counts;
     }
 
     /** @return array<string, mixed> */
@@ -399,6 +420,20 @@ class RoleService
         foreach ($members as $membership) {
             $membership->role = $to;
             $membership->save();
+        }
+
+        // Additional roles move too. A member who already holds the target
+        // (as main or additional role) just loses the row, the unique key
+        // allows one row per role.
+        foreach ($this->holders(MemberRole::query(), $handle, $team)->get() as $row) {
+            $holdsTarget = Membership::query()->where('team_id', $row->team_id)->where('user_id', $row->user_id)->where('role', $to)->exists()
+                || MemberRole::query()->where('team_id', $row->team_id)->where('user_id', $row->user_id)->where('role', $to)->exists();
+
+            if ($holdsTarget) {
+                $row->delete();
+            } else {
+                $row->update(['role' => $to]);
+            }
         }
 
         $this->holders(Invitation::query()->pending(), $handle, $team)->update(['role' => $to]);

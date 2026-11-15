@@ -69,6 +69,7 @@ In Antlers, `{{ teams:switch_form }}`, `{{ teams:members }}`, `{{ teams:invite_f
 | **Team** | `Goldnead\Teams\Models\Team`: `id`, `uuid`, `name`, `type` (`team`, `personal`, or your own), `owner_id`, `join_method` (`invitation_only`, `join_code`), `join_code`, `settings`, `billing`. |
 | **Membership** | One user in one team: `role`, `meta` (free fields, e.g. a voice part), `is_current`, `joined_at`. Users are stored by string key, so UUIDs (file users) and integers (Eloquent) both work. |
 | **Invitation** | Addressed to an email, with a role and `meta` copied onto the membership. Expires (default 7 days), is bound to its address, works once. Inviting the same address again replaces the link. |
+| **Additional roles, own permissions** | Optional, per membership. `team_member_roles` adds roles next to the main role, `team_member_permissions` adds single permissions. What a member may do is the union of main role, additional roles and own permissions. A member without rows is exactly what they were. See [More than one role](#more-than-one-role-per-member). |
 | **Role** | Global roles start from `teams.roles`; changes made in the CP (table `team_global_roles`) win, and each can be reset to the config. A team can add or adjust roles for itself (`team_roles`); a team role with a global handle replaces it for that team. `owner` holds every permission and cannot be removed from the last owner. |
 
 **Nobody hands out more than they hold.** Whoever assigns a role, invites into it or removes someone
@@ -81,6 +82,30 @@ covers editing someone else's membership fields (`updateMemberMeta`).
 still be in the team and hold every permission of the invited role. If not, the invitation is not
 refused (the invitee acted in good faith) but grants only `default_role`; the team can raise it.
 Invitations from the CP or an import (no sender) keep their role.
+
+### More than one role per member
+
+`team_members.role` stays the **main role** and keeps every meaning it had: `owner`, the last-owner
+rule, what an invitation carries, `Teams::changeRole()`. On top of it a member can hold
+
+- **additional roles** (`Teams::addRole()`), any role that applies in the team except `owner`, and
+- **own permissions** (`Teams::grantPermission()`), single permissions from `teams.permissions`
+  (never `*`), independent of a role. Use them for the exception, not for a second role system.
+
+`Teams::can()` and every permission check of this addon ask for the union of the three. The owner
+role is only ever a main role: it cannot be added, and an owner stays owner through `changeRole()`.
+A role used as an additional role counts as held: deleting it needs a role to move the holders to
+(`role_in_use`, `members` counts both), and a holder who already has the target just loses the
+row.
+
+The rules are those of a role change. The actor needs `change roles`, hands out or takes away only
+what they hold (including what an additional role or own permission of theirs gives them), may not
+change their own access unless they are an owner, and an owner's access is changed by an owner. No
+actor means trusted. Everything is per team: an additional role in team A does nothing in team B.
+Adding what is already held is a no-op without an event. A member who leaves or is removed loses
+their additional roles and own permissions.
+
+There is no Control Panel screen for this yet; the facade is the interface.
 
 ### Managing roles
 
@@ -195,6 +220,13 @@ Teams::guardJoining(Closure $guard): void             // fn (Team $team, string 
 // Roles
 Teams::can($user, Team $team, string $permission): bool
 Teams::roleOf($user, Team $team): ?string
+Teams::addRole(Team $team, $user, string $role, $actor = null): Membership         // additional role, idempotent
+Teams::removeRole(Team $team, $user, string $role, $actor = null): Membership
+Teams::grantPermission(Team $team, $user, string $permission, $actor = null): Membership  // own permission, idempotent
+Teams::revokePermission(Team $team, $user, string $permission, $actor = null): Membership
+Teams::rolesOf($user, Team $team): array             // main role first, then the additional ones
+Teams::permissionsOf($user, Team $team): array       // effective: all sources, ['*'] for everything
+Teams::ownPermissionsOf($user, Team $team): array    // only the permissions granted to the member alone
 Teams::roles(?Team $team = null): array             // handle => label, permissions, scope (global|team), source, overrides_global
 Teams::permissions(): array                          // handle => translated label
 Teams::registerPermission(string $handle, ?string $label = null): void
@@ -381,7 +413,9 @@ and plain fields (no tokens, no join codes):
 
 `teams.team.created`, `teams.team.updated`, `teams.team.deleted`, `teams.team.ownership_transferred`,
 `teams.member.joined` (`via`: `created`, `added`, `invitation`, `join_code`), `teams.member.left`
-(`reason`: `left`, `removed`), `teams.member.role_changed`, `teams.invitation.sent`,
+(`reason`: `left`, `removed`), `teams.member.role_changed`, `teams.member.role_added`,
+`teams.member.role_removed` (`role`), `teams.member.permission_granted`,
+`teams.member.permission_revoked` (`permission`), `teams.invitation.sent`,
 `teams.invitation.accepted`, `teams.invitation.revoked`, `teams.role.created`, `teams.role.updated`
 (`changes`: `label`, `permissions`), `teams.role.deleted` (`reassigned_to`, `reassigned`).
 
