@@ -2,6 +2,9 @@
 
 namespace Goldnead\Teams\Support;
 
+use Goldnead\Teams\Models\MemberPermission;
+use Goldnead\Teams\Models\MemberRole;
+use Goldnead\Teams\Models\Membership;
 use Goldnead\Teams\Models\Team;
 
 /**
@@ -167,11 +170,107 @@ class Roles
         return in_array('*', $held, true) || array_diff($target, $held) === [];
     }
 
+    /**
+     * May the member do `$permission` in the team: through the main role,
+     * an additional role or a permission of their own.
+     */
     public function can(mixed $user, Team $team, string $permission): bool
     {
-        $role = $team->roleOf($user);
+        $membership = $team->membershipOf($user);
 
-        return $role !== null && $this->roleAllows($role, $permission, $team);
+        if ($membership === null) {
+            return false;
+        }
+
+        if ($this->roleAllows($membership->role, $permission, $team)) {
+            return true;
+        }
+
+        foreach ($this->extraRoles($membership) as $role) {
+            if ($this->roleAllows($role, $permission, $team)) {
+                return true;
+            }
+        }
+
+        $own = $this->ownPermissions($membership);
+
+        return in_array('*', $own, true) || in_array($permission, $own, true);
+    }
+
+    /**
+     * The additional roles of a member (not the main one).
+     *
+     * @return list<string>
+     */
+    public function extraRoles(Membership $membership): array
+    {
+        return MemberRole::query()
+            ->where('team_id', $membership->team_id)
+            ->where('user_id', $membership->user_id)
+            ->orderBy('id')
+            ->pluck('role')
+            ->map(fn ($role) => (string) $role)
+            ->all();
+    }
+
+    /**
+     * The permissions granted to a member alone.
+     *
+     * @return list<string>
+     */
+    public function ownPermissions(Membership $membership): array
+    {
+        return MemberPermission::query()
+            ->where('team_id', $membership->team_id)
+            ->where('user_id', $membership->user_id)
+            ->orderBy('id')
+            ->pluck('permission')
+            ->map(fn ($permission) => (string) $permission)
+            ->all();
+    }
+
+    /**
+     * Everything a member may do: main role, additional roles and own
+     * permissions, once each. `['*']` when anything of it holds everything.
+     *
+     * @return list<string>
+     */
+    public function effectivePermissions(Membership $membership, Team $team): array
+    {
+        $all = $this->permissions($membership->role, $team);
+
+        foreach ($this->extraRoles($membership) as $role) {
+            $all = array_merge($all, $this->permissions($role, $team));
+        }
+
+        $all = array_values(array_unique(array_merge($all, $this->ownPermissions($membership))));
+
+        return in_array('*', $all, true) ? ['*'] : $all;
+    }
+
+    /**
+     * Like {@see covers()}, but with everything the actor holds: a member
+     * whose additional role grants a permission may also hand it out.
+     */
+    public function coversAll(Membership $actor, string $targetRole, Team $team): bool
+    {
+        if ($actor->role === $this->ownerRole()) {
+            return true;
+        }
+
+        if ($targetRole === $this->ownerRole()) {
+            return false;
+        }
+
+        $target = $this->permissions($targetRole, $team);
+
+        if (in_array('*', $target, true)) {
+            return false;
+        }
+
+        $held = $this->effectivePermissions($actor, $team);
+
+        return in_array('*', $held, true) || array_diff($target, $held) === [];
     }
 
     public function ownerRole(): string

@@ -45,9 +45,27 @@ class Authorizer
             return;
         }
 
-        $own = $team->roleOf($actor) ?? throw TeamsException::because(TeamsException::NOT_MEMBER);
+        $own = $team->membershipOf($actor) ?? throw TeamsException::because(TeamsException::NOT_MEMBER);
 
-        if (! $this->roles->covers($own, $role, $team)) {
+        // Everything the actor holds counts: main role, additional roles and
+        // own permissions. Without the latter two this is `covers()` of the
+        // main role, as before.
+        if (! $this->roles->coversAll($own, $role, $team)) {
+            throw TeamsException::because(TeamsException::FORBIDDEN);
+        }
+    }
+
+    /**
+     * The actor may hand out or take away one single permission: they hold
+     * it themselves. No-op for the system (no actor).
+     */
+    public function authorizePermission(mixed $actor, Team $team, string $permission): void
+    {
+        if ($actor === null) {
+            return;
+        }
+
+        if (! $this->roles->can($actor, $team, $permission)) {
             throw TeamsException::because(TeamsException::FORBIDDEN);
         }
     }

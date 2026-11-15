@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.5.0 — 2026-11-15
+
+### Added: more than one role per member
+
+- A member can hold **additional roles** next to the main role (`team_members.role`, unchanged), and **own permissions** that no role carries. `Teams::can()` and every permission check of the addon ask for the union of main role, additional roles and own permissions. Without any of them nothing changes.
+- API: `Teams::addRole()`, `removeRole()`, `grantPermission()`, `revokePermission()`, `rolesOf()`, `permissionsOf()` (effective), `ownPermissionsOf()`. Same rules as `changeRole()`: `change roles`, nobody hands out more than they hold (additional roles and own permissions count as held), no changes to one's own access unless owner, an owner's access by an owner. The owner role is never an additional role, `*` is never an own permission. Per team: an additional role in team A does nothing in team B.
+- Four events, in the event catalog and so in the automations, webhook and activity bridges: `teams.member.role_added`, `teams.member.role_removed`, `teams.member.permission_granted`, `teams.member.permission_revoked`.
+- A role held as an additional role counts as in use: `role_in_use` counts it under `members`, and deleting a role with a role to move to moves additional holders too (a holder who already has the target just loses the row). Those moves fire no `role_added` and `role_removed` events.
+- A member who leaves or is removed loses their additional roles and own permissions.
+- Migration `2026_11_15_000001_create_team_member_roles_and_permissions_tables` (`team_member_roles`, `team_member_permissions`, unique per team, user and role or permission; `down()` drops both).
+- No Control Panel screen: the facade is the interface for now.
+
+### Upgrading
+
+- Run `php artisan migrate` (the migration loads automatically, nothing to publish).
+- Packages that require `^0.4` do not accept 0.5.0 (Composer treats a 0.x minor as breaking): widen the constraint to `^0.4 || ^0.5` after checking.
+- Code that read `Membership::role` as "everything the member may do" is unchanged in meaning; use `Teams::rolesOf()` or `Teams::permissionsOf()` where the additional roles matter.
+
 ## 0.4.2 — 2026-10-17
 
 ### Changed

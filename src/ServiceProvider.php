@@ -21,6 +21,7 @@ use Goldnead\Teams\Services\ClaimService;
 use Goldnead\Teams\Services\ImportService;
 use Goldnead\Teams\Services\InvitationService;
 use Goldnead\Teams\Services\JoinService;
+use Goldnead\Teams\Services\MemberAccessService;
 use Goldnead\Teams\Services\MembershipService;
 use Goldnead\Teams\Services\RoleService;
 use Goldnead\Teams\Services\TeamService;
@@ -102,7 +103,7 @@ class ServiceProvider extends AddonServiceProvider
             JoinService::class, ImportService::class, TeamsManager::class,
             TeamEntitlements::class, TeamBuyer::class, MailTemplates::class,
             AutomationsBridge::class, WebhookManagerBridge::class,
-            RoleService::class, Permissions::class,
+            RoleService::class, Permissions::class, MemberAccessService::class,
         ] as $singleton) {
             $this->app->singleton($singleton);
         }

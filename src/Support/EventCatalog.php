@@ -7,7 +7,11 @@ use Goldnead\Teams\Events\InvitationRevoked;
 use Goldnead\Teams\Events\InvitationSent;
 use Goldnead\Teams\Events\MemberJoined;
 use Goldnead\Teams\Events\MemberLeft;
+use Goldnead\Teams\Events\MemberPermissionGranted;
+use Goldnead\Teams\Events\MemberPermissionRevoked;
+use Goldnead\Teams\Events\MemberRoleAdded;
 use Goldnead\Teams\Events\MemberRoleChanged;
+use Goldnead\Teams\Events\MemberRoleRemoved;
 use Goldnead\Teams\Events\OwnershipTransferred;
 use Goldnead\Teams\Events\RoleCreated;
 use Goldnead\Teams\Events\RoleDeleted;
@@ -38,6 +42,10 @@ class EventCatalog
         MemberJoined::class => ['mail' => 'member_joined'],
         MemberLeft::class => ['mail' => 'member_removed'],
         MemberRoleChanged::class => ['mail' => 'role_changed'],
+        MemberRoleAdded::class => ['mail' => null],
+        MemberRoleRemoved::class => ['mail' => null],
+        MemberPermissionGranted::class => ['mail' => null],
+        MemberPermissionRevoked::class => ['mail' => null],
         InvitationSent::class => ['mail' => 'invitation'],
         InvitationAccepted::class => ['mail' => null],
         InvitationRevoked::class => ['mail' => null],
