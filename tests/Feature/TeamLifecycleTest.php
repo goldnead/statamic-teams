@@ -10,6 +10,7 @@ use Goldnead\Teams\Exceptions\TeamsException;
 use Goldnead\Teams\Facades\Teams;
 use Goldnead\Teams\Models\Team;
 use Goldnead\Teams\Tests\TestCase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use PHPUnit\Framework\Attributes\Test;
 
@@ -41,11 +42,14 @@ class TeamLifecycleTest extends TestCase
         try {
             Teams::create('Kammerchor', $anna);
             $this->fail('A refused owner membership must abort the creation.');
-        } catch (TeamsException) {
+        } catch (TeamsException $e) {
+            $this->assertSame('join_refused', $e->reason);
         }
 
         $this->assertSame(0, Team::query()->count());
+        $this->assertSame(0, DB::table('team_members')->count());
         Event::assertNotDispatched(TeamCreated::class);
+        Event::assertNotDispatched(MemberJoined::class);
     }
 
     #[Test]

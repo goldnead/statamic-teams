@@ -49,7 +49,7 @@ class TeamService
         // One unit: a refused owner membership (join guard, unknown role) must
         // not leave a team behind that nobody can administer. The events are
         // dispatched after commit, so a rolled-back team announces nothing.
-        $team = DB::transaction(function () use ($name, $ownerKey, $type, $attributes) {
+        return DB::transaction(function () use ($name, $ownerKey, $type, $attributes) {
             $joinMethod = (string) ($attributes['join_method'] ?? Team::JOIN_INVITATION_ONLY);
 
             $team = Team::query()->create([
@@ -70,8 +70,6 @@ class TeamService
 
             return $team;
         });
-
-        return $team;
     }
 
     /**
