@@ -32,6 +32,23 @@ class TeamLifecycleTest extends TestCase
     }
 
     #[Test]
+    public function a_refused_owner_membership_leaves_no_team_behind(): void
+    {
+        Event::fake([TeamCreated::class, MemberJoined::class]);
+        $anna = $this->makeUser('anna@example.com');
+        Teams::guardJoining(fn () => 'join_refused');
+
+        try {
+            Teams::create('Kammerchor', $anna);
+            $this->fail('A refused owner membership must abort the creation.');
+        } catch (TeamsException) {
+        }
+
+        $this->assertSame(0, Team::query()->count());
+        Event::assertNotDispatched(TeamCreated::class);
+    }
+
+    #[Test]
     public function switching_to_join_by_code_creates_a_code(): void
     {
         $team = Teams::create('Chor', $this->makeUser('a@example.com'));
