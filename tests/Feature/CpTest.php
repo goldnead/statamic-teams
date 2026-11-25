@@ -108,6 +108,17 @@ class CpTest extends TestCase
     }
 
     #[Test]
+    public function installing_mail_templates_without_the_integration_is_an_error_not_a_success(): void
+    {
+        config(['teams.integrations.email_templates' => false]);
+
+        $this->actingAsCpUser('admin@example.com', ['view teams', 'manage teams'])
+            ->post('/cp/teams/mail-templates')
+            ->assertSessionHas('error')
+            ->assertSessionMissing('success');
+    }
+
+    #[Test]
     public function an_unknown_owner_is_a_form_error_not_a_team_without_owner(): void
     {
         $this->actingAsCpUser('admin@example.com', ['view teams', 'manage teams'])

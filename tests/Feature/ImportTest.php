@@ -209,6 +209,20 @@ class ImportTest extends TestCase
     }
 
     #[Test]
+    public function a_file_with_broken_json_names_the_parse_error(): void
+    {
+        $file = tempnam(sys_get_temp_dir(), 'teams').'.json';
+        file_put_contents($file, '[{"name": "Chor",');
+
+        $this->artisan('teams:import', ['file' => $file])
+            ->expectsOutputToContain('Syntax error')
+            ->assertFailed();
+
+        $this->assertSame(0, Team::query()->count());
+        @unlink($file);
+    }
+
+    #[Test]
     public function a_dry_run_writes_nothing(): void
     {
         $owner = $this->makeUser('owner@example.com');

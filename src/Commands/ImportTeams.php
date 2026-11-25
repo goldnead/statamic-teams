@@ -41,7 +41,7 @@ class ImportTeams extends Command
         $teams = json_decode((string) file_get_contents($path), true);
 
         if (! is_array($teams) || ! array_is_list($teams)) {
-            $this->error('The file must hold a JSON list of teams.');
+            $this->error('The file must hold a JSON list of teams.'.(json_last_error() !== JSON_ERROR_NONE ? ' Parse error: '.json_last_error_msg().'.' : ''));
 
             return self::FAILURE;
         }

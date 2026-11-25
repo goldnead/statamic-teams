@@ -10,9 +10,13 @@ use Goldnead\Teams\Facades\Teams;
 use Goldnead\Teams\Mail\TeamMail;
 use Goldnead\Teams\Models\Invitation;
 use Goldnead\Teams\Tests\TestCase;
+use Illuminate\Mail\Events\MessageSending;
+use Illuminate\Mail\Events\MessageSent;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use PHPUnit\Framework\Attributes\Test;
+use RuntimeException;
 
 class InvitationTest extends TestCase
 {
@@ -192,6 +196,32 @@ class InvitationTest extends TestCase
         Teams::invite(Teams::create('Chor'), 'bob@example.com');
 
         Mail::assertNothingSent();
+    }
+
+    #[Test]
+    public function one_failing_recipient_does_not_stop_the_other_owners_and_is_named_in_the_log(): void
+    {
+        Log::spy();
+        $team = Teams::create('Chor', $this->makeUser('owner@example.com'));
+        Teams::addMember($team, $this->makeUser('second@example.com'), 'owner');
+
+        $delivered = [];
+        Event::listen(MessageSending::class, function (MessageSending $event) {
+            if ($event->message->getTo()[0]->getAddress() === 'owner@example.com') {
+                throw new RuntimeException('SMTP refused');
+            }
+        });
+        Event::listen(MessageSent::class, function (MessageSent $event) use (&$delivered) {
+            $delivered[] = $event->message->getTo()[0]->getAddress();
+        });
+
+        Teams::addMember($team, $this->makeUser('bob@example.com', 'Bob'));
+
+        $this->assertSame(['second@example.com'], $delivered);
+        Log::shouldHaveReceived('warning')->withArgs(
+            fn ($message, $context = []) => str_contains($message, 'mail could not be sent')
+                && ($context['recipient'] ?? null) === 'owner@example.com'
+        )->once();
     }
 
     #[Test]

@@ -33,6 +33,7 @@ return [
     'switched' => 'Du arbeitest jetzt in :team.',
     'join_code_regenerated' => 'Neuer Beitrittscode: :code',
     'templates_installed' => ':count Mail-Vorlagen in die E-Mail-Vorlagen geschrieben.',
+    'templates_unavailable' => 'Die E-Mail-Vorlagen sind nicht installiert oder in der Teams-Konfiguration ausgeschaltet. Es wurde nichts geschrieben.',
 
     'errors' => [
         'not_member' => 'Du bist kein Mitglied dieses Teams.',

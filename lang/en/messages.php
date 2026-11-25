@@ -33,6 +33,7 @@ return [
     'switched' => 'You are now working in :team.',
     'join_code_regenerated' => 'New join code: :code',
     'templates_installed' => ':count mail templates written to email templates.',
+    'templates_unavailable' => 'Email templates is not installed or is switched off in the Teams config. Nothing was written.',
 
     'errors' => [
         'not_member' => 'You are not a member of this team.',

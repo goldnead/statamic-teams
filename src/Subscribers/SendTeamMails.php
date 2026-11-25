@@ -118,15 +118,27 @@ class SendTeamMails
 
         try {
             $rendered = $this->templates->render($mail, $data);
-
-            foreach (array_unique($recipients) as $recipient) {
-                Mail::to($recipient)->send(new TeamMail($mail, $rendered['subject'], $rendered['html']));
-            }
         } catch (Throwable $e) {
             Log::warning('statamic-teams: the mail could not be sent.', [
                 'mail' => $mail,
                 'exception' => $e->getMessage(),
             ]);
+
+            return;
+        }
+
+        // One recipient per try: a refused address must not swallow the mail
+        // to the owners after it, and the log names who was missed.
+        foreach (array_unique($recipients) as $recipient) {
+            try {
+                Mail::to($recipient)->send(new TeamMail($mail, $rendered['subject'], $rendered['html']));
+            } catch (Throwable $e) {
+                Log::warning('statamic-teams: the mail could not be sent.', [
+                    'mail' => $mail,
+                    'recipient' => $recipient,
+                    'exception' => $e->getMessage(),
+                ]);
+            }
         }
     }
 
