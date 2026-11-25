@@ -10,6 +10,7 @@ use Goldnead\Teams\Exceptions\TeamsException;
 use Goldnead\Teams\Facades\Teams;
 use Goldnead\Teams\Models\Team;
 use Goldnead\Teams\Tests\TestCase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use PHPUnit\Framework\Attributes\Test;
 
@@ -29,6 +30,26 @@ class TeamLifecycleTest extends TestCase
         $this->assertNotEmpty($team->uuid);
         Event::assertDispatched(TeamCreated::class);
         Event::assertDispatched(MemberJoined::class, fn (MemberJoined $e) => $e->via === 'created');
+    }
+
+    #[Test]
+    public function a_refused_owner_membership_leaves_no_team_behind(): void
+    {
+        Event::fake([TeamCreated::class, MemberJoined::class]);
+        $anna = $this->makeUser('anna@example.com');
+        Teams::guardJoining(fn () => 'join_refused');
+
+        try {
+            Teams::create('Kammerchor', $anna);
+            $this->fail('A refused owner membership must abort the creation.');
+        } catch (TeamsException $e) {
+            $this->assertSame('join_refused', $e->reason);
+        }
+
+        $this->assertSame(0, Team::query()->count());
+        $this->assertSame(0, DB::table('team_members')->count());
+        Event::assertNotDispatched(TeamCreated::class);
+        Event::assertNotDispatched(MemberJoined::class);
     }
 
     #[Test]

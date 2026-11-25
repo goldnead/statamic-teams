@@ -46,10 +46,13 @@ class TeamService
             throw TeamsException::because(TeamsException::PERSONAL_TEAM);
         }
 
-        $team = DB::transaction(function () use ($name, $ownerKey, $type, $attributes) {
+        // One unit: a refused owner membership (join guard, unknown role) must
+        // not leave a team behind that nobody can administer. The events are
+        // dispatched after commit, so a rolled-back team announces nothing.
+        return DB::transaction(function () use ($name, $ownerKey, $type, $attributes) {
             $joinMethod = (string) ($attributes['join_method'] ?? Team::JOIN_INVITATION_ONLY);
 
-            return Team::query()->create([
+            $team = Team::query()->create([
                 'name' => trim($name),
                 'type' => $type,
                 'owner_id' => $ownerKey,
@@ -58,15 +61,15 @@ class TeamService
                 'settings' => $attributes['settings'] ?? null,
                 'billing' => $attributes['billing'] ?? null,
             ]);
+
+            event(new TeamCreated($team, $ownerKey));
+
+            if ($ownerKey !== null) {
+                $this->memberships->add($team, $ownerKey, $this->roles->ownerRole(), (array) ($attributes['meta'] ?? []), 'created');
+            }
+
+            return $team;
         });
-
-        event(new TeamCreated($team, $ownerKey));
-
-        if ($ownerKey !== null) {
-            $this->memberships->add($team, $ownerKey, $this->roles->ownerRole(), (array) ($attributes['meta'] ?? []), 'created');
-        }
-
-        return $team;
     }
 
     /**
