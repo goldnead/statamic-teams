@@ -69,6 +69,7 @@ class InvitationService
 
         $token = Str::random(48);
 
+        $open = $team->invitations()->pending()->where('email', $email)->first();
         $attributes = [
             'role' => $role,
             'meta' => $meta === [] ? null : $meta,
@@ -77,26 +78,16 @@ class InvitationService
             'expires_at' => $this->expiry(),
         ];
 
-        // Check and write in one transaction, with the team row locked: two
-        // invitations for the same address at once must not both find no
-        // open invitation and both create one.
-        [$invitation, $resent] = DB::transaction(function () use ($team, $email, $attributes) {
-            Team::query()->whereKey($team->getKey())->lockForUpdate()->first();
-
-            $open = $team->invitations()->pending()->where('email', $email)->first();
-
-            if ($open !== null) {
-                $open->update($attributes);
-
-                return [$open, true];
-            }
-
-            return [$team->invitations()->create(['email' => $email] + $attributes), false];
-        });
+        if ($open !== null) {
+            $open->update($attributes);
+            $invitation = $open;
+        } else {
+            $invitation = $team->invitations()->create(['email' => $email] + $attributes);
+        }
 
         $url = $this->acceptUrl($token);
 
-        event(new InvitationSent($invitation, $resent, $this->authorizer->actorKey($actor), $url));
+        event(new InvitationSent($invitation, $open !== null, $this->authorizer->actorKey($actor), $url));
 
         return new IssuedInvitation($invitation, $token, $url);
     }

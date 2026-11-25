@@ -147,8 +147,7 @@ class TeamService
         $this->authorizer->authorize($actor, $team, 'delete team');
 
         $summary = $team->summary();
-
-        DB::transaction(fn () => $team->delete());
+        $team->delete();
 
         event(new TeamDeleted($summary, $this->authorizer->actorKey($actor)));
     }

@@ -51,17 +51,13 @@ class MembershipService
             throw TeamsException::because(TeamsException::PERSONAL_TEAM);
         }
 
-        $membership = DB::transaction(function () use ($team, $key, $role, $meta, $via) {
-            // The membership check lives in the transaction with the write,
-            // and the team row is locked so a parallel join cannot pass it too.
-            Team::query()->whereKey($team->getKey())->lockForUpdate()->first();
+        if ($team->hasMember($key)) {
+            throw TeamsException::because(TeamsException::ALREADY_MEMBER);
+        }
 
-            if ($team->hasMember($key)) {
-                throw TeamsException::because(TeamsException::ALREADY_MEMBER);
-            }
+        $this->guards->check($team, $key, $via);
 
-            $this->guards->check($team, $key, $via);
-
+        $membership = DB::transaction(function () use ($team, $key, $role, $meta) {
             return $team->members()->create([
                 'user_id' => $key,
                 'role' => $role,
