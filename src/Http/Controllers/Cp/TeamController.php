@@ -315,11 +315,13 @@ class TeamController extends Controller
         // Without the addon (or with the integration switched off) install()
         // writes nothing; "0 templates written" as a green toast would read
         // like a success.
-        if (! $templates->available()) {
+        $result = $templates->available() ? $templates->install() : ['created' => [], 'skipped' => []];
+
+        // install() also returns empty when the collection manager class is
+        // missing, which available() does not check.
+        if ($result['created'] === [] && $result['skipped'] === []) {
             return back()->with('error', __('teams::messages.templates_unavailable'));
         }
-
-        $result = $templates->install();
 
         return back()->with('success', __('teams::messages.templates_installed', ['count' => count($result['created'])]));
     }
