@@ -37,6 +37,8 @@ class WebhookManagerBridge
         // boot order is not guaranteed. Not marked booted, so a later pass can
         // still register.
         if (! app()->bound('webhook-manager')) {
+            Log::warning('statamic-teams: webhook-manager is installed but not bound yet, team triggers are not registered on this pass.');
+
             return;
         }
 
@@ -70,6 +72,8 @@ class WebhookManagerBridge
             $trigger = WebhookManager::triggers()->get($handle);
 
             if (! $trigger) {
+                Log::warning('statamic-teams: no webhook trigger is registered for ['.$handle.'], the event was not forwarded.');
+
                 return;
             }
 

@@ -6,6 +6,7 @@ use Goldnead\Teams\Integrations\Automations\AutomationsBridge;
 use Goldnead\Teams\Integrations\EmailTemplates\MailTemplates;
 use Goldnead\Teams\Integrations\WebhookManager\WebhookManagerBridge;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Schema;
 use Throwable;
@@ -123,6 +124,8 @@ class Wiring
         try {
             foreach ($tables as $table) {
                 if (! Schema::hasTable($table)) {
+                    Log::warning('statamic-teams: a table the control panel counts from is missing, the counts come back empty.', ['table' => $table]);
+
                     return [];
                 }
             }
