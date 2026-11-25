@@ -312,6 +312,13 @@ class TeamController extends Controller
     {
         $this->authorizeOrFail($request, 'manage teams');
 
+        // Without the addon (or with the integration switched off) install()
+        // writes nothing; "0 templates written" as a green toast would read
+        // like a success.
+        if (! $templates->available()) {
+            return back()->with('error', __('teams::messages.templates_unavailable'));
+        }
+
         $result = $templates->install();
 
         return back()->with('success', __('teams::messages.templates_installed', ['count' => count($result['created'])]));
